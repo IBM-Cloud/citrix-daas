@@ -18,7 +18,7 @@ We recommend using the IBM Cloud portal WES-UI to deploy CVADs on IBM Cloud VPC.
 WES-UI creates an IBM Cloud Schematics workspace that points to this Terraform module and deploys
 your CVADs infrastructure. Using Schematics is *no additional cost* and provides a way for you to
 easily manage your Terraform lifecycle. See
-[IBM Cloud portal WES-UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop?featureFlags=demoGen2)
+[IBM Cloud portal WES-UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop?featureFlags=vpcBeta)
 .
 
 For more information on IBM Cloud Schematics, see
@@ -67,7 +67,7 @@ If you would like to have network connection between IBM Cloud VPC and Classic I
 
 You must create the proper Schematics access policies for a user to deploy CVADs on IBM Cloud VPC
 using the
-[WES-UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop)
+[WES-UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop?featureFlags=vpcBeta)
 or IBM Cloud Schematics. See
 [IBM Cloud Schematics Access](https://cloud.ibm.com/docs/schematics?topic=schematics-access).
 
@@ -192,7 +192,7 @@ customers to manage resources on IBM Cloud VPC.
 In order to access restricted resources, whether on-prem or in the cloud, CVADs requires the use of
 an authorized proxy. This is accomplished with the installation of a Cloud Connector, which
 is also used by CVADs plugins that need access to the restricted resources. The IBM Cloud VPC plugin
-needs to be installed on all Cloud Connectors that will be used to access IBM Cloud VPC. See
+needs to be installed on all Cloud Connectors on your Citrix Cloud account. See
 [Cloud Connector](https://docs.citrix.com/en-us/citrix-cloud/citrix-cloud-resource-locations/citrix-cloud-connector.html).
 
 This Terraform module downloads the `cvad-plugin.msi` from this repository, then installs and
@@ -257,4 +257,4 @@ Hot patches will be released on demand.
 - [IBM Cloud provider Terraform getting started](https://cloud.ibm.com/docs/ibm-cloud-provider-for-terraform?topic=ibm-cloud-provider-for-terraform-getting-started)
 - [Citrix (CVADs)](https://docs.citrix.com/en-us/tech-zone/learn/tech-briefs/cvads.html)
 - [IBM Cloud Schematics](https://cloud.ibm.com/schematics/overview)
-- [CVADs Ordering UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop?vpcBeta)
+- [CVADs Ordering UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop?featureFlags=vpcBeta)

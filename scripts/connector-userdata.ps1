@@ -16,6 +16,11 @@
 # limitations under the License.
 #############################################################################
 
+param (
+[string]$ConnectorJoinPassword,
+[string]$CitrixClientSecret,
+[string]$GitHubPersonalAccessToken
+)
 Function Write-Log {
     [CmdletBinding()]
     param(
@@ -40,6 +45,10 @@ Function Write-Environment {
     $DotNet = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full'
     Write-Log -Level Info ".NET version/release $($DotNet.version)/$($DotNet.release)"
 }
+Function Create-Script {
+    Copy-Item "$($MyInvocation.ScriptName)" -Destination "C:\ConnectorSetup.ps1"
+    Write-Log -Level Info "C:\ConnectorSetup.ps1 has been successfully created. Run ConnectorSetup.ps1 with arguments after AD setup is complete."
+}
 Function Join-ComputerToActiveDirectory {
     Write-Log -Level Info "ad name is ${ad_domain_name}"
     Write-Log -Level Info "ad ip is ${ad_ip}"
@@ -63,7 +72,7 @@ Function Join-ComputerToActiveDirectory {
     Retry-Command -ScriptBlock {
         $joinCred = New-Object pscredential -ArgumentList ([pscustomobject]@{
             UserName = $null
-            Password = (ConvertTo-SecureString -String "${ad_join_pwd}" -AsPlainText -Force)[0]
+            Password = (ConvertTo-SecureString -String $JoinPassword -AsPlainText -Force)[0]
         })
         $AddComputer = Add-Computer -Domain ${ad_domain_name} -Options UnsecuredJoin,PasswordPass -Credential $joinCred -ErrorAction Stop -Verbose
         Write-Log -Level Info "Added Computer $AddComputer"
@@ -143,7 +152,7 @@ Function Register-CloudConnector {
         "/q",
         "/Customer:${customer_id}",
         "/ClientId:${api_id}",
-        "/ClientSecret:${api_secret}",
+        "/ClientSecret:$ClientSecret",
         "/ResourceLocationId:$($resourceLocationId)",
         "/AcceptTermsOfService:true"
     )
@@ -172,7 +181,7 @@ Function Download-Plugin {
     if ("${ghe_token}" -eq "") {
         $tag = (Invoke-WebRequest -Method GET -UseBasicParsing -Uri $releasesUri | ConvertFrom-Json)[0].tag_name
     } else {
-        $tag = (Invoke-WebRequest -Method GET -UseBasicParsing -Headers @{Authorization = "token ${ghe_token}"} `
+        $tag = (Invoke-WebRequest -Method GET -UseBasicParsing -Headers @{Authorization = "token $PersonalAccessToken"} `
         -Uri $releasesUri | ConvertFrom-Json)[0].tag_name
     }
 
@@ -184,10 +193,10 @@ Function Download-Plugin {
     New-Item -ItemType Directory -Force -Path "$pluginDir"
     try {
         Write-Log -Level Info "Downloading $downloadsUri to $downloadPath"
-        if ("${ghe_token}" -eq "") {
+        if ($PersonalAccessToken -eq "") {
             Invoke-WebRequest -Method GET -Uri $downloadsUri -OutFile $downloadPath -Verbose
         } else {
-            Invoke-WebRequest -Method GET -Headers @{Authorization = "token ${ghe_token}"} `
+            Invoke-WebRequest -Method GET -Headers @{Authorization = "token $PersonalAccessToken"} `
             -Uri $downloadsUri -OutFile $downloadPath -Verbose
         }
 
@@ -258,8 +267,9 @@ Function Set-Registry {
         ConnectorVpcId = "${vpc_id}";
         ResourceGroupId = "${resource_group_id}";
         AccountId = "${ibmcloud_account_id}";
-        ZoneName = "${zone}"
-        PreparationSecurityGroupName = "${master_prep_sg}"
+        ZoneName = "${zone}";
+        PreparationSecurityGroupName = "${master_prep_sg}";
+        CatalogDefaultSecurityGroupName = "vda-sg";
     }
     New-Item 'HKLM:\Software\IBM\CVAD' -Force
     foreach ($registryKey in $registryKeys.GetEnumerator()) {
@@ -323,7 +333,7 @@ Function Get-BearerAuthHeader {
     try {
         $response = Invoke-RestMethod -Uri "https://trust.citrixworkspacesapi.net/root/tokens/clients" `
             -Method "Post" `
-            -Body (ConvertTo-Json @{clientId = "${api_id}"; clientSecret = "${api_secret}"}) `
+            -Body (ConvertTo-Json @{clientId = "${api_id}"; clientSecret = "$ClientSecret"}) `
             -ContentType application/json -TimeoutSec 300  -Verbose
         Write-Log -Level Info "Get-BearerAuthHeader complete"
         return @{"Authorization" = "CWSAuth bearer=`"$($response.token)`""}
@@ -395,6 +405,22 @@ $citrixPluginsDir = "C:\Program Files\Common Files\Citrix\HCLPlugins"
 $citrixPluginsRoot = "$citrixPluginsDir\CitrixMachineCreation\v1.0.0.0"
 $pluginDir = "$citrixPluginsRoot\IBMCloud"
 $citrixServiceName = "Citrix Cloud Services AD Provider"
+if ("${topology}" -eq "Extended") {
+    Write-Log -Level Info "Active Directory topology is set to Extended."
+    if ($ConnectorJoinPassword -eq "") {
+        Write-Log -Level Info "Manual AD setup required for Extended topology. Creating ConnectorSetup.ps1 in C:\"
+        Create-Script
+        exit 0
+    }
+    $JoinPassword = $ConnectorJoinPassword
+    $ClientSecret = $CitrixClientSecret
+    $PersonalAccessToken = $GitHubPersonalAccessToken
+} else {
+    Write-Log -Level Info "Active Directory topology is set to IBM Cloud."
+    $JoinPassword = "${ad_join_pwd}"
+    $ClientSecret = "${api_secret}"
+    $PersonalAccessToken = "${ghe_token}"
+}
 try {
     Write-Log -Level Info "CVAD topology is ${topology}"
     Write-Environment

@@ -37,8 +37,26 @@ locals {
   uuid            = random_string.resource_identifier.result
   connector_name  = "cc"
   connector_depth = 5
-
-  vpc_id = var.vpc_name != "" ? data.ibm_is_vpc.vpc[0].id : ""
+  vpc_id          = var.vpc_name != "" ? data.ibm_is_vpc.vpc[0].id : ""
+  standard_tpl    = templatefile("${path.module}/scripts/ad-userdata.ps1", {
+      "ad_domain_name"      = var.active_directory_domain_name,
+      "netbios_name"        = var.netbios_name,
+      "connector_name"      = local.connector_name,
+      "connector_depth"     = local.connector_depth,
+      "resource_identifier" = local.uuid,
+      "topology"            = var.active_directory_topology,
+      "ad_join_pwd"         = random_password.ad_join_pwd.result,
+      "ad_safe_pwd"         = var.active_directory_safe_mode_password,
+    }
+  )
+  extended_tpl    = templatefile("${path.module}/scripts/ad-extended.ps1", {
+      "ad_domain_name"      = var.active_directory_domain_name,
+      "connector_name"      = local.connector_name,
+      "connector_depth"     = local.connector_depth,
+      "resource_identifier" = local.uuid,
+      "topology"            = var.active_directory_topology,
+    }
+  )
 }
 
 data "ibm_resource_group" "cvad" {
@@ -197,17 +215,7 @@ resource "ibm_is_instance" "active_directory" {
   image          = data.ibm_is_image.windows.id
   profile        = var.control_plane_profile
   resource_group = data.ibm_resource_group.cvad.id
-  user_data      = templatefile("${path.module}/scripts/ad-userdata.ps1", {
-      "ad_domain_name"      = var.active_directory_domain_name,
-      "netbios_name"        = var.netbios_name
-      "connector_name"      = local.connector_name
-      "connector_depth"     = local.connector_depth
-      "resource_identifier" = local.uuid,
-      "topology"            = var.active_directory_topology,
-      "ad_join_pwd"         = random_password.ad_join_pwd.result,
-      "ad_safe_pwd"         = var.active_directory_safe_mode_password
-    }
-  )
+  user_data      = var.active_directory_topology == "Extended" ? local.extended_tpl : local.standard_tpl
 
   primary_network_interface {
     name            = "primary-nic"

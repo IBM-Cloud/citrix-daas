@@ -64,9 +64,13 @@ variable "citrix_api_key_client_secret" {
     sensitive   = true
 }
 
-variable "resource_location_name" {
+variable "resource_location_names" {
     description = "The Citrix resource location name to be associated with this IBM Cloud VPC CVAD deployment"
-    type        = string
+    type        = list(string)
+    validation {
+        condition = length(var.resource_location_names) >= 1
+        error_message = "There should at be least one resource location name specified."
+    }
 }
 
 variable "region" {
@@ -88,17 +92,22 @@ variable "region" {
     }
 }
 
-variable "zone" {
-  type        = string
+variable "zones" {
+  type        = list(string)
   description = "IBM Cloud zone name within the selected region where the CVAD infrastructure should be deployed. [Learn more](https://cloud.ibm.com/docs/vpc?topic=vpc-creating-a-vpc-in-a-different-region#get-zones-using-the-cli)"
+
+  validation {
+    condition = length(var.zones) >= 1
+    error_message = "There should be at least one zone specified."
+  }
 }
 
-variable "connector_depth" {
+variable "connector_per_zone" {
     type        = number
-    description = "Number of Cloud Connector instances"
+    description = "Number of connector instances per zone"
     default     = 2
     validation {
-      condition     = var.connector_depth >= 1 && var.connector_depth <=5
+      condition     = var.connector_per_zone >= 1 && var.connector_per_zone <=5
       error_message = "Depth must be between 1 and 5."
     }
 }
@@ -111,12 +120,6 @@ variable "basename" {
 
 variable "active_directory_domain_name" {
     description = "Active Directory domain name"
-    type        = string
-}
-
-
-variable "netbios_name" {
-    description = "Netbios name used for AD"
     type        = string
 }
 
@@ -167,8 +170,8 @@ variable "vpc_name" {
     default     = ""
 }
 
-variable "dev_mode" {
-    description = "Used by IBM Cloud for internal development."
-    type        = bool
-    default     = false
+variable "plugin_download_url" {
+    description = "Used by Cloud Connector setup to download IBM Cloud VPC plugin."
+    type        = string
+    default     = "https://api.github.com/repos/IBM-Cloud/citrix-virtual-apps-and-desktops"
 }

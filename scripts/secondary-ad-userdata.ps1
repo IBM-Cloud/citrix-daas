@@ -21,42 +21,13 @@
     Installs extended Active Directory domain controller.
 
 .DESCRIPTION
-    This script installs and configures an extended Active Directory domain controller, and joins the 
-    domain controller to the root Active Directory domain. The parameters below must be supplied when
-    running this script to join the root Active Directory domain and pre-register the Cloud Connector(s).
+    This script installs and configures an extended Active Directory domain controller, joined to the
+    root Active Directory domain with pre-registered Cloud Connectors. An Active Directory Site is created
+    for this domain controller using the zone name.
 
 .NOTES
-    This script needs to be run manually on all Active Directory servers when using Extended topology.
-    Cloudbase-Init will save this script at C:\ActiveDirectorySetup.ps1 when the virtual server is
-    deployed. This script must be run before the connector-userdata.ps1 script on the Cloud Connector
-    server(s)
+    This script is used by the IBM Cloud topology and executed post server deployment by Cloudbase-Init.
 #>
-
-param (
-    # Username for joining Active Directory Domain
-    [string]
-    $Username,
-
-    # Password for joining Active Directory Domain
-    [string]
-    $Password,
-
-    # Join password to set for pre-registering Cloud Connectors to join Active Directory Domain
-    [string]
-    $ConnectorJoinPassword,
-
-    # IP Address of root Active Directory Domain Controller
-    [string]
-    $RootActiveDirectoryIPAddress,
-
-    # FQDN of root Active Directory Domain Controller
-    [string]
-    $ReplicationSourceDC,
-
-    # Password to set for DSRM on Active Directory Domain Controller
-    [string]
-    $ActiveDirectorySafeModePassword
-)
 
 Function Write-Log {
     <#
@@ -103,6 +74,7 @@ Function Write-Environment {
     Write-Log -Level Info "----------------------------------------"
     Write-Log -Level Info "Started executing $($MyInvocation.ScriptName)"
     Write-Log -Level Info "----------------------------------------"
+
     Write-Log -Level Info "Script Version: 2022.02.07-1"
     Write-Log -Level Info "Current User: $env:username"
     Write-Log -Level Info "Hostname: $env:computername"
@@ -110,6 +82,25 @@ Function Write-Environment {
     Write-Log -Level Info "Host Version $($Host.Version)"
     $DotNet = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
     Write-Log -Level Info ".NET version/release $($DotNet.version)/$($DotNet.release)"
+}
+
+Function Create-Task {
+    <#
+    .SYNOPSIS
+        Creates task for reboot.
+
+    .DESCRIPTION
+        This function copies this script to the C drive and schedules a task to rerun the script 10
+        minutes after reboot to complete setup.
+    #>
+    Write-Log -Level Info "Creating adsetup.ps1"
+    Copy-Item "$($MyInvocation.ScriptName)" -Destination "C:\adsetup.ps1"
+    Write-Log -Level Info "Creating task to run adsetup.ps1 after reboot"
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File C:\adsetup.ps1"
+    $trigger = New-ScheduledTaskTrigger -AtStartup
+    $trigger.delay = "PT10M"
+    $principal = New-ScheduledTaskPrincipal -UserID "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    Register-ScheduledTask -TaskName "ADFinalSetup" -TaskPath "\" -Action $action -Trigger $trigger -Principal $principal
 }
 
 Function Retry-Command {
@@ -136,21 +127,17 @@ Function Retry-Command {
     #>
     [CmdletBinding()]
     Param(
-        [Parameter(Position = 0, Mandatory = $true)]
-        [scriptblock]
-        $ScriptBlock,
+        [Parameter(Position=0, Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
 
-        [Parameter(Position = 1, Mandatory = $false)]
-        [int]
-        $Attempts = 5,
+        [Parameter(Position=1, Mandatory=$false)]
+        [int]$Attempts = 5,
 
-        [Parameter(Position = 2, Mandatory = $false)]
-        [int]
-        $Delay = 60,
+        [Parameter(Position=2, Mandatory=$false)]
+        [int]$Delay = 60,
 
-        [Parameter(Position = 3, Mandatory = $false)]
-        [bool]
-        $UntilDone = $false
+        [Parameter(Position=3, Mandatory=$false)]
+        [bool]$UntilDone = $false
     )
 
     Begin {
@@ -172,18 +159,6 @@ Function Retry-Command {
     }
 }
 
-Function Create-Script {
-    <#
-    .SYNOPSIS
-        Copies script to directory.
-
-    .DESCRIPTION
-        This function copies this script to the C drive to be run manually when using Extended topology.
-    #>
-    Copy-Item "$($MyInvocation.ScriptName)" -Destination "C:\ActiveDirectorySetup.ps1"
-    Write-Log -Level Info "C:\ActiveDirectorySetup.ps1 has been successfully created. Run ActiveDirectorySetup.ps1 with arguments to complete setup."
-}
-
 Function Custom-InstallADDomainController {
     <#
     .SYNOPSIS
@@ -203,11 +178,13 @@ Function Custom-InstallADDomainController {
         $SiteName
     )
 
+    $Username = "${ad_domain_name}\aduser"
+    $Password = "${ad_join_pwd}"
     $Password = ConvertTo-SecureString -String $Password -AsPlainText -Force
     $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Username,$Password
-
+    
     $result = Install-ADDSDomainController `
-                -SafeModeAdministratorPassword (ConvertTo-SecureString -String $ActiveDirectorySafeModePassword -AsPlainText -Force) `
+                -SafeModeAdministratorPassword (ConvertTo-SecureString -String "${ad_safe_pwd}" -AsPlainText -Force) `
                 -NoGlobalCatalog:$false `
                 -CreateDnsDelegation:$false `
                 -DomainName ${ad_domain_name} `
@@ -217,7 +194,7 @@ Function Custom-InstallADDomainController {
                 -InstallDns:$true `
                 -LogPath "C:\Windows\NTDS" `
                 -NoRebootOnCompletion:$false `
-                -ReplicationSourceDC $ReplicationSourceDC `
+                -ReplicationSourceDC "${root_ad_name}.${ad_domain_name}" `
                 -SiteName $SiteName `
                 -SysvolPath "C:\Windows\SYSVOL" `
                 -Force:$true
@@ -240,7 +217,6 @@ Function Set-Dns {
     .PARAMETER $PrefferedDNSServer
         IP Address to set as preferred DNS address.
     #>
-    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [string]
@@ -279,47 +255,16 @@ Function Run-Install {
     if (Check-Install -eq $true) {
         Write-Log -Level Info "ActiveDirectory is installed"
         (Get-Service ADWS).WaitForStatus("Running", $(New-TimeSpan -seconds 30))
-        Write-Log -Level Info "Setting alternate DNS for root AD to put in $RootActiveDirectoryIPAddress"
+        Write-Log -Level Info "Setting alternate DNS for root AD to ${root_ad_ip}"
         $Interface = Get-DnsClientServerAddress | Select-Object InterfaceIndex, ServerAddresses
-        Set-DnsClientServerAddress -InterfaceIndex $Interface[0].InterfaceIndex -ServerAddresses "127.0.0.1",$RootActiveDirectoryIPAddress
-
-        $configuration = @{
-            connectorHosts = [System.Collections.ArrayList]@()
-        }
-
-        $zones = "${zones}"
-        $AdZones = $zones.Split(",")
-        $connectorCount = ${connector_reg_num} * $AdZones.count
-        Write-Log -Level Info "Adding connector hostnames to register list."
-
-        for ($i = 1; $i -le $connectorCount; $i++) {
-            try {
-                Get-ADComputer -Identity "${connector_name}-${resource_identifier}-$i" | Out-Null
-            } catch {
-                $configuration["connectorHosts"].Add("${connector_name}-${resource_identifier}-$i")
-            }
-        }
-
-        if ($($configuration["connectorHosts"].count) -gt 0) {
-            $joinPassword = (ConvertTo-SecureString -String $ConnectorJoinPassword -AsPlainText -Force)
-            Write-Log -Level Info "ADWS status: $((Get-Service ADWS).Status)"
-            Write-Log -Level Info "Registering connector hostnames: $($configuration["connectorHosts"])"
-
-            foreach ($hostname in $configuration["connectorHosts"]) {
-                New-ADComputer -Name $hostname -AccountPassword $joinPassword
-            }
-
-            Write-Log -Level Info "Connector hostnames registration complete."
-        } else {
-            Write-Log -Level Info "Connector hostnames registration list is empty, all connectors registered"
-        }
-
+        Set-DnsClientServerAddress -InterfaceIndex $Interface[0].InterfaceIndex -ServerAddresses "127.0.0.1","${root_ad_ip}"
         Write-Log -Level Info "Enabling SMB2 protocol."
         Set-SmbServerConfiguration -EnableSMB2Protocol $true -Force
         Write-Log -Level Info "Run-Install Complete. Service: $(Get-ADDomainController -Discover -Service ADWS)"
         exit 0
     }
 
+    Create-Task
     Write-Log -Level Info "Synchronizing Time with SL servers"
     w32tm /config /manualpeerlist:servertime.service.softlayer.com /syncfromflags:MANUAL
     Stop-Service w32time
@@ -332,15 +277,18 @@ Function Run-Install {
     Add-WindowsFeature AD-Domain-Services
 
     try {
-        Write-Log -Level Info "Setting DNS to primary active directory $RootActiveDirectoryIPAddress"
-        Set-Dns $RootActiveDirectoryIPAddress
+        $zones = "${zones}"
+        $AdZones = $zones.Split(",")
+        Write-Log -Level Info "Setting DNS to primary active directory ${root_ad_ip}"
+        Set-Dns "${root_ad_ip}"
         Import-Module ADDSDeployment
-        Write-Log -Level Info "Site Name is Default-First-Site-Name, Root AD Domain Controller is $ReplicationSourceDC"
+        Write-Log -Level Info "Site Name is $AdZones[${zone_index}], Root AD Name is ${root_ad_name}"
 
         Retry-Command -ScriptBlock {
-            $result = Custom-InstallADDomainController -SiteName "Default-First-Site-Name"
+            $result = Custom-InstallADDomainController -SiteName $AdZones[${zone_index}] 
             Write-Log -Level Info "ActiveDirectory domain controller: $($result.Message)"
         } -Attempts 15
+
         return $true
     } catch {
         Write-Log -Level Error "Run-Install failed: $_"
@@ -374,18 +322,12 @@ Function Check-Install {
 #
 Write-Environment
 Write-Log -Level Info "CVAD topology is ${topology}"
-
-if ($RootActiveDirectoryIPAddress -eq "") {
-    Write-Log -Level Info "Manual AD setup required for Extended topology. Creating ActiveDirectorySetup.ps1 in C:\"
-    Create-Script
-    exit 0
-}
-
+Write-Log -Level Info "Starting Secondary Active Directory setup"
 $activeDirectoryInstalled = Run-Install
 Write-Log -Level Info "Active Directory setup complete ($activeDirectoryInstalled) "
 
 if ($activeDirectoryInstalled) {
-        Write-Log -Level Info "Active Directory Installed - Please run this script again after restart completes (1001)"
+        Write-Log -Level Info "Active Directory Installed - restart and do not run this script on next boot (1001)"
 exit 1001
 }
 exit 0

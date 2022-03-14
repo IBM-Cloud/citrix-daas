@@ -171,7 +171,17 @@ variable "vpc_name" {
 }
 
 variable "plugin_download_url" {
+    description = "Scheduled for deprecated, use `repository_download_url`"
+    type        = string
+    default     = ""
+}
+
+variable "repository_download_url" {
     description = "Used by Cloud Connector setup to download IBM Cloud VPC plugin."
     type        = string
     default     = "https://api.github.com/repos/IBM-Cloud/citrix-virtual-apps-and-desktops"
+}
+
+locals {
+    repository_download_url = var.plugin_download_url != "" ? var.plugin_download_url : var.repository_download_url
 }

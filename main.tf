@@ -319,7 +319,7 @@ resource "ibm_is_instance" "connector" {
       "master_prep_sg"         = ibm_is_security_group.master_prep_sg.name,
       "topology"               = var.active_directory_topology,
       "ad_join_pwd"            = random_password.ad_join_pwd.result,
-      "plugin_download_url"    = var.plugin_download_url
+      "plugin_download_url"    = local.repository_download_url
       "vda_sg"                 = ibm_is_security_group.vda_sg.name
     }
   )

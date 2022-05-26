@@ -39,7 +39,6 @@ locals {
   uuid                = random_string.resource_identifier.result
   connector_name      = "cc"
   connector_reg_num   = 5
-  vpc_id              = var.vpc_name != "" ? data.ibm_is_vpc.vpc[0].id : ""
   standard_tpl        = templatefile("${path.module}/scripts/ad-userdata.ps1", {
       "ad_name"             = "${var.basename}-${local.uuid}-${var.active_directory_vsi_name}"
       "ad_domain_name"      = var.active_directory_domain_name,
@@ -74,26 +73,34 @@ data "ibm_resource_group" "cvad" {
   name = var.resource_group
 }
 
-# Get VPC if Terraform variable supplied
-data "ibm_is_vpc" "vpc" {
-  count = var.vpc_name != "" ? 1: 0
-  name = var.vpc_name
+# Create VPC
+resource "ibm_is_vpc" "vpc" {
+  name                        = "${var.basename}-${local.uuid}-vpc"
+  resource_group              = data.ibm_resource_group.cvad.id
+  default_security_group_name = var.vda_security_group_name
+  address_prefix_management   = length(var.address_prefix_cidrs) != 0 ? "manual" : "auto"
 }
 
-# Create VPC if not supplied
-resource "ibm_is_vpc" "vpc" {
-  count          = local.vpc_id == "" ? 1 : 0
-  name           = "${var.basename}-${local.uuid}-vpc"
-  resource_group = data.ibm_resource_group.cvad.id
+resource "ibm_is_vpc_address_prefix" "prefixes" {
+  count = length(var.address_prefix_cidrs)
+  name  = format("%s-prefix-%d", ibm_is_vpc.vpc.name, count.index)
+  zone  = var.zones[count.index]
+  vpc   = ibm_is_vpc.vpc.id
+  cidr  = var.address_prefix_cidrs[count.index]
 }
 
 # Create one subnet per zone
 resource "ibm_is_subnet" "subnets" {
+  depends_on = [
+    ibm_is_vpc_address_prefix.prefixes
+  ]
+
   count                    = length(var.zones)
-  name                     = "${var.basename}-${local.uuid}-subnet-${count.index +1}"
-  vpc                      = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  name                     = "${var.basename}-subnet-${count.index +1}"
+  vpc                      = ibm_is_vpc.vpc.id
   zone                     = var.zones[count.index]
-  total_ipv4_address_count = 256
+  total_ipv4_address_count = length(var.address_prefix_cidrs) == 0 ? var.subnet_ipv4_count : null
+  ipv4_cidr_block          = length(var.address_prefix_cidrs) != 0 ? var.subnet_cidrs[count.index] : null
   resource_group           = data.ibm_resource_group.cvad.id
   public_gateway           = ibm_is_public_gateway.gateway[count.index].id
 }
@@ -101,32 +108,26 @@ resource "ibm_is_subnet" "subnets" {
 # Create security groups
 resource "ibm_is_security_group" "master_prep_sg" {
   name           = "master-prep-sg"
-  vpc            = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  vpc            = ibm_is_vpc.vpc.id
   resource_group = data.ibm_resource_group.cvad.id
 }
 
 resource "ibm_is_security_group" "active_directory_sg" {
   name           = "active-directory-sg"
-  vpc            = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  vpc            = ibm_is_vpc.vpc.id
   resource_group = data.ibm_resource_group.cvad.id
 }
 
 resource "ibm_is_security_group" "connector_sg" {
   name           = "connector-sg"
-  vpc            = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
-  resource_group = data.ibm_resource_group.cvad.id
-}
-
-resource "ibm_is_security_group" "vda_sg" {
-  name           = "vda-sg"
-  vpc            = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  vpc            = ibm_is_vpc.vpc.id
   resource_group = data.ibm_resource_group.cvad.id
 }
 
 resource "ibm_is_security_group" "custom_image_sg" {
   count          = var.deploy_custom_image_vsi ? 1 : 0
   name           = "custom-image-sg"
-  vpc            = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  vpc            = ibm_is_vpc.vpc.id
   resource_group = data.ibm_resource_group.cvad.id
 }
 
@@ -140,7 +141,7 @@ resource "ibm_is_security_group_rule" "ingress_active_directory_from_connector_a
 resource "ibm_is_security_group_rule" "ingress_active_directory_from_vda_all" {
   group     = ibm_is_security_group.active_directory_sg.id
   direction = "inbound"
-  remote    = ibm_is_security_group.vda_sg.id
+  remote    = ibm_is_vpc.vpc.default_security_group
 }
 
 resource "ibm_is_security_group_rule" "ingress_active_directory_from_custom_image_tcp" {
@@ -183,7 +184,7 @@ resource "ibm_is_security_group_rule" "egress_active_directory_all" {
 resource "ibm_is_security_group_rule" "ingress_connector_from_vda_all" {
   group     = ibm_is_security_group.connector_sg.id
   direction = "inbound"
-  remote    = ibm_is_security_group.vda_sg.id
+  remote    = ibm_is_vpc.vpc.default_security_group
 }
 
 resource "ibm_is_security_group_rule" "ingress_connector_from_active_directory_all" {
@@ -199,22 +200,16 @@ resource "ibm_is_security_group_rule" "egress_connector_all" {
 }
 
 resource "ibm_is_security_group_rule" "ingress_vda_from_connector_all" {
-  group     = ibm_is_security_group.vda_sg.id
+  group     = ibm_is_vpc.vpc.default_security_group
   direction = "inbound"
   remote    = ibm_is_security_group.connector_sg.id
 }
 
 
 resource "ibm_is_security_group_rule" "ingress_vda_from_active_directory_all" {
-  group     = ibm_is_security_group.vda_sg.id
+  group     = ibm_is_vpc.vpc.default_security_group
   direction = "inbound"
   remote    = ibm_is_security_group.active_directory_sg.id
-}
-
-resource "ibm_is_security_group_rule" "egress_vda_all" {
-  group     = ibm_is_security_group.vda_sg.id
-  direction = "outbound"
-  remote    = "0.0.0.0/0"
 }
 
 resource "ibm_is_security_group_rule" "ingress_custom_image_tcp" {
@@ -238,7 +233,7 @@ resource "ibm_is_security_group_rule" "egress_custom_image_all" {
 
 # Get Windows image for Virtual Server creates
 data "ibm_is_image" "windows" {
-  name = "ibm-windows-server-2019-full-standard-amd64-5"
+  name = "ibm-windows-server-2019-full-standard-amd64-8"
 }
 
 # Get SSH Key for Virtual Server creates
@@ -249,7 +244,7 @@ data "ibm_is_ssh_key" "ssh_key_id" {
 # Create Virtual Server for primary Active Directory Domain Controller
 resource "ibm_is_instance" "active_directory" {
   name           = "${var.basename}-${local.uuid}-${var.active_directory_vsi_name}"
-  vpc            = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  vpc            = ibm_is_vpc.vpc.id
   zone           = var.zones[0]
   keys           = [data.ibm_is_ssh_key.ssh_key_id.id]
   image          = data.ibm_is_image.windows.id
@@ -268,7 +263,7 @@ resource "ibm_is_instance" "active_directory" {
 resource "ibm_is_instance" "secondary_active_directory" {
   count          = length(local.secondary_zones) > 0 ? length(local.secondary_zones) : 0
   name           = "${var.basename}-${local.uuid}-${var.active_directory_vsi_name}-${count.index+1}"
-  vpc            = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  vpc            = ibm_is_vpc.vpc.id
   zone           = local.secondary_zones[count.index]
   keys           = [data.ibm_is_ssh_key.ssh_key_id.id]
   image          = data.ibm_is_image.windows.id
@@ -297,7 +292,7 @@ resource "ibm_is_instance" "secondary_active_directory" {
 resource "ibm_is_instance" "connector" {
   count          = var.connector_per_zone * length(var.zones)
   name           = "${local.connector_name}-${local.uuid}-${count.index + 1}"
-  vpc            = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  vpc            = ibm_is_vpc.vpc.id
   zone           = var.zones[floor(count.index / var.connector_per_zone)]
   keys           = [data.ibm_is_ssh_key.ssh_key_id.id]
   image          = data.ibm_is_image.windows.id
@@ -312,15 +307,16 @@ resource "ibm_is_instance" "connector" {
       "ad_ip"                  = floor(count.index / var.connector_per_zone) == 0 ? ibm_is_instance.active_directory.primary_network_interface[0].primary_ipv4_address : ibm_is_instance.secondary_active_directory[floor(count.index / var.connector_per_zone)-1].primary_network_interface[0].primary_ipv4_address,
       "ghe_token"              = var.personal_access_token,
       "ibmcloud_account_id"    = var.ibmcloud_account_id,
-      "vpc_id"                 = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id,
+      "vpc_id"                 = ibm_is_vpc.vpc.id,
       "resource_group_id"      = data.ibm_resource_group.cvad.id,
       "region"                 = var.region,
       "zone"                   = var.zones[floor(count.index / var.connector_per_zone)],
       "master_prep_sg"         = ibm_is_security_group.master_prep_sg.name,
       "topology"               = var.active_directory_topology,
       "ad_join_pwd"            = random_password.ad_join_pwd.result,
-      "plugin_download_url"    = local.repository_download_url
-      "vda_sg"                 = ibm_is_security_group.vda_sg.name
+      "plugin_download_url"    = local.repository_download_url,
+      "tag"                    = var.repository_reference,
+      "vda_sg"                 = var.vda_security_group_name
     }
   )
 
@@ -335,7 +331,7 @@ resource "ibm_is_instance" "connector" {
 resource "ibm_is_instance" "custom_image_instance" {
   count           = var.deploy_custom_image_vsi ? 1 : 0
   name            = "cstm-img-${local.uuid}"
-  vpc             = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  vpc             = ibm_is_vpc.vpc.id
   zone            = var.zones[0]
   keys            = [data.ibm_is_ssh_key.ssh_key_id.id]
   image           = data.ibm_is_image.windows.id
@@ -357,7 +353,7 @@ resource "ibm_is_instance" "custom_image_instance" {
 resource "ibm_is_public_gateway" "gateway" {
   count           = length(var.zones)
   name            = "gw-${local.uuid}-${count.index}"
-  vpc             = local.vpc_id != "" ? local.vpc_id : ibm_is_vpc.vpc[0].id
+  vpc             = ibm_is_vpc.vpc.id
   zone            = var.zones[count.index]
   resource_group  = data.ibm_resource_group.cvad.id
 }

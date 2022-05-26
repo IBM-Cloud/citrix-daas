@@ -92,7 +92,7 @@ Function Write-Environment {
     Write-Log -Level Info "Script Version: 2022.02.07-1"
     Write-Log -Level Info "Current User: $env:username"
     Write-Log -Level Info "Hostname: $env:computername"
-    Write-Log -Level Info "The OS Version is $env:OSVersion.Version"
+    Write-Log -Level Info "The OS Version is $((Get-CimInstance Win32_OperatingSystem).version)"
     Write-Log -Level Info "Host Version $($Host.Version)"
     $DotNet = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
     Write-Log -Level Info ".NET version/release $($DotNet.version)/$($DotNet.release)"
@@ -308,14 +308,7 @@ Function Download-Plugin {
     #>
     $releasesUri = New-Object -TypeName System.Uri `
         -ArgumentList "${plugin_download_url}/releases"
-    $tag = ""
-
-    if ("${ghe_token}" -eq "") {
-        $tag = (Invoke-WebRequest -Method GET -UseBasicParsing -Uri $releasesUri | ConvertFrom-Json)[0].tag_name
-    } else {
-        $tag = (Invoke-WebRequest -Method GET -UseBasicParsing -Headers @{Authorization = "token $PersonalAccessToken"} `
-        -Uri $releasesUri | ConvertFrom-Json)[0].tag_name
-    }
+    $tag = "${tag}"
 
     $latest = "IBM-CVAD-$tag"
     $downloadsUri = New-Object -TypeName System.Uri `

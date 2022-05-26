@@ -39,12 +39,11 @@ variable "resource_group" {
     type        = string
 }
 
-
 variable "personal_access_token" {
-  description = "Personal access token used to get plugin installer from ghe."
-  type        = string
-  sensitive   = true
-  default     = ""
+    description = "Personal access token used to get plugin installer from ghe."
+    type        = string
+    sensitive   = true
+    default     = ""
 }
 
 variable "citrix_customer_id" {
@@ -55,7 +54,6 @@ variable "citrix_customer_id" {
 variable "citrix_api_key_client_id" {
     description = "The Citrix Cloud API key client id needed to connect to Citrix"
     type        = string
-    sensitive   = true
 }
 
 variable "citrix_api_key_client_secret" {
@@ -93,13 +91,31 @@ variable "region" {
 }
 
 variable "zones" {
-  type        = list(string)
-  description = "IBM Cloud zone name within the selected region where the CVAD infrastructure should be deployed. [Learn more](https://cloud.ibm.com/docs/vpc?topic=vpc-creating-a-vpc-in-a-different-region#get-zones-using-the-cli)"
+    type        = list(string)
+    description = "IBM Cloud zone name within the selected region where the CVAD infrastructure should be deployed. [Learn more](https://cloud.ibm.com/docs/vpc?topic=vpc-creating-a-vpc-in-a-different-region#get-zones-using-the-cli)"
 
-  validation {
-    condition = length(var.zones) >= 1
-    error_message = "There should be at least one zone specified."
-  }
+    validation {
+        condition = length(var.zones) >= 1
+        error_message = "There should be at least one zone specified."
+    }
+}
+
+variable "address_prefix_cidrs" {
+    type        = list(string)
+    description = "Address prefixes to create in the VPC"
+    default     = []
+}
+
+variable "subnet_cidrs" {
+    type        = list(string)
+    description = "Subnet cidrs to use in each zone, requred when using `address_prefix_cidrs`"
+    default     = []
+}
+
+variable "subnet_ipv4_count" {
+    type        = number
+    description = "Count of ipv4 address in each zone, ignored when using `address_prefix_cidrs`"
+    default     = 256
 }
 
 variable "connector_per_zone" {
@@ -164,12 +180,6 @@ variable "custom_image_vsi_profile" {
     default     = "cx2-4x8"
 }
 
-variable "vpc_name" {
-    description = "Use an existing VPC to deploy Citrix Virtual Apps and Desktops on."
-    type        = string
-    default     = ""
-}
-
 variable "plugin_download_url" {
     description = "Scheduled for deprecated, use `repository_download_url`"
     type        = string
@@ -180,6 +190,18 @@ variable "repository_download_url" {
     description = "Used by Cloud Connector setup to download IBM Cloud VPC plugin."
     type        = string
     default     = "https://api.github.com/repos/IBM-Cloud/citrix-virtual-apps-and-desktops"
+}
+
+variable "repository_reference" {
+    description = "Reference of repository at which to download"
+    type        = string
+    default     = "master"
+}
+
+variable "vda_security_group_name" {
+    description = "Name for security group created for VDAs"
+    type        = string
+    default     = "vda-sg"
 }
 
 locals {

@@ -421,6 +421,7 @@ Function Set-Registry {
         ZoneName = "${zone}";
         PreparationSecurityGroupName = "${master_prep_sg}";
         CatalogDefaultSecurityGroupName = "${vda_sg}";
+        DedicatedHostGroupId = "${dedicated_host_group_id}"
     }
 
     New-Item "HKLM:\Software\IBM\CVAD" -Force

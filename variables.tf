@@ -77,16 +77,17 @@ variable "region" {
 
     validation  {
       error_message = "Must use an IBM Cloud region. Use `ibmcloud regions` with the IBM Cloud CLI to see valid regions."
-      condition     = can(
-        contains([
+      condition     = contains([
           "au-syd",
           "jp-tok",
           "eu-de",
           "eu-gb",
           "us-south",
-          "us-east"
+          "us-east",
+          "ca-tor",
+          "jp-osa",
+          "br-sao"
         ], var.region)
-      )
     }
 }
 
@@ -206,4 +207,32 @@ variable "vda_security_group_name" {
 
 locals {
     repository_download_url = var.plugin_download_url != "" ? var.plugin_download_url : var.repository_download_url
+}
+
+variable "dedicated_host_per_zone" {
+    type        = number
+    description = "Number of dedicated hosts per zone. VDAs for these resource locations will be provisioned to dedicated hosts. Please ensure your VPC vCPU qouta is sufficient. All dedicated host vCPU will count against regional qouta, even while not allocated by VDAs."
+    default     = 0
+}
+
+variable "dedicated_host_profile" {
+    type        = string
+    description = "Profile used for each 'dedicated_host_per_zone'. The dedicated host profile family must match the family to be used by VDAs. Dedicated hosts with instance storage are not supported at this time."
+    default     = ""
+}
+
+variable "dedicated_control_plane" {
+    type        = bool
+    description = "Provision control plane virtual server instances (active directory, cloud connector, custom image) on dedicated host groups provisioned with `dedicated_host_per_zone` and `dedicated_host_profile`. Requires `custom_image_vsi_profile` and `control_plane_profile` to use the same profile family and class as `dedicated_host_profile`."
+    default     = false
+}
+
+locals {
+    dedicated_host_family_map = {
+        "cx2" = "compute"
+        "mx2" = "memory"
+        "bx2" = "balanced"
+    }
+    dedicated_host_class = substr(var.dedicated_host_profile, 0, 3)
+    dedicated_host_family = lookup(local.dedicated_host_family_map, local.dedicated_host_class, "")
 }

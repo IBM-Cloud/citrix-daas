@@ -89,6 +89,25 @@ resource "ibm_is_vpc_address_prefix" "prefixes" {
   cidr  = var.address_prefix_cidrs[count.index]
 }
 
+# Create dedicated host group
+resource "ibm_is_dedicated_host_group" "dh_group" {
+  for_each = var.dedicated_host_per_zone > 0 ? toset(var.zones) : []
+  name = format("%s-%s-host-group", var.basename, each.value)
+  resource_group = data.ibm_resource_group.cvad.id
+  zone = each.value
+  family = local.dedicated_host_family
+  class = local.dedicated_host_class
+}
+
+# Create dedicated hosts per zone
+resource "ibm_is_dedicated_host" "host" {
+  count = var.dedicated_host_per_zone * length(var.zones)
+  name = format("%s-%s-host-%d", var.basename, var.zones[floor(count.index/var.dedicated_host_per_zone)], 1 + count.index % var.dedicated_host_per_zone)
+  resource_group = data.ibm_resource_group.cvad.id
+  profile = var.dedicated_host_profile
+  host_group = ibm_is_dedicated_host_group.dh_group[var.zones[floor(count.index/var.dedicated_host_per_zone)]].id
+}
+
 # Create one subnet per zone
 resource "ibm_is_subnet" "subnets" {
   depends_on = [
@@ -243,6 +262,10 @@ data "ibm_is_ssh_key" "ssh_key_id" {
 
 # Create Virtual Server for primary Active Directory Domain Controller
 resource "ibm_is_instance" "active_directory" {
+  depends_on = [
+    ibm_is_dedicated_host.host
+  ]
+
   name           = "${var.basename}-${local.uuid}-${var.active_directory_vsi_name}"
   vpc            = ibm_is_vpc.vpc.id
   zone           = var.zones[0]
@@ -250,6 +273,8 @@ resource "ibm_is_instance" "active_directory" {
   image          = data.ibm_is_image.windows.id
   profile        = var.control_plane_profile
   resource_group = data.ibm_resource_group.cvad.id
+  dedicated_host_group = (var.dedicated_host_per_zone > 0 && var.dedicated_control_plane) ? ibm_is_dedicated_host_group.dh_group[var.zones[0]].id : null
+
   user_data      = var.active_directory_topology == "Extended" ? local.extended_tpl : local.standard_tpl
 
   primary_network_interface {
@@ -261,6 +286,10 @@ resource "ibm_is_instance" "active_directory" {
 
 # Create Virtual Server(s) for secondary Active Directory Domain Controller(s)
 resource "ibm_is_instance" "secondary_active_directory" {
+  depends_on = [
+    ibm_is_dedicated_host.host
+  ]
+
   count          = length(local.secondary_zones) > 0 ? length(local.secondary_zones) : 0
   name           = "${var.basename}-${local.uuid}-${var.active_directory_vsi_name}-${count.index+1}"
   vpc            = ibm_is_vpc.vpc.id
@@ -269,6 +298,8 @@ resource "ibm_is_instance" "secondary_active_directory" {
   image          = data.ibm_is_image.windows.id
   profile        = var.control_plane_profile
   resource_group = data.ibm_resource_group.cvad.id
+  dedicated_host_group = (var.dedicated_host_per_zone > 0 && var.dedicated_control_plane) ? ibm_is_dedicated_host_group.dh_group[local.secondary_zones[count.index]].id : null
+
   user_data      = var.active_directory_topology == "Extended" ? local.extended_tpl : templatefile("${path.module}/scripts/secondary-ad-userdata.ps1", {
       "root_ad_name"    = ibm_is_instance.active_directory.name,
       "ad_domain_name"  = var.active_directory_domain_name,
@@ -290,6 +321,10 @@ resource "ibm_is_instance" "secondary_active_directory" {
 
 # Create x number of Virtual Servers in y number of zones for Cloud Connector(s)
 resource "ibm_is_instance" "connector" {
+  depends_on = [
+    ibm_is_dedicated_host.host
+  ]
+
   count          = var.connector_per_zone * length(var.zones)
   name           = "${local.connector_name}-${local.uuid}-${count.index + 1}"
   vpc            = ibm_is_vpc.vpc.id
@@ -298,25 +333,28 @@ resource "ibm_is_instance" "connector" {
   image          = data.ibm_is_image.windows.id
   profile        = var.control_plane_profile
   resource_group = data.ibm_resource_group.cvad.id
+  dedicated_host_group = (var.dedicated_host_per_zone > 0 && var.dedicated_control_plane) ? ibm_is_dedicated_host_group.dh_group[var.zones[floor(count.index / var.connector_per_zone)]].id : null
+
   user_data = templatefile("${path.module}/scripts/connector-userdata.ps1", {
-      "customer_id"            = var.citrix_customer_id,
-      "api_id"                 = var.citrix_api_key_client_id,
-      "api_secret"             = var.citrix_api_key_client_secret,
-      "resource_location_name" = var.resource_location_names[floor(count.index / var.connector_per_zone)],
-      "ad_domain_name"         = var.active_directory_domain_name,
-      "ad_ip"                  = floor(count.index / var.connector_per_zone) == 0 ? ibm_is_instance.active_directory.primary_network_interface[0].primary_ipv4_address : ibm_is_instance.secondary_active_directory[floor(count.index / var.connector_per_zone)-1].primary_network_interface[0].primary_ipv4_address,
-      "ghe_token"              = var.personal_access_token,
-      "ibmcloud_account_id"    = var.ibmcloud_account_id,
-      "vpc_id"                 = ibm_is_vpc.vpc.id,
-      "resource_group_id"      = data.ibm_resource_group.cvad.id,
-      "region"                 = var.region,
-      "zone"                   = var.zones[floor(count.index / var.connector_per_zone)],
-      "master_prep_sg"         = ibm_is_security_group.master_prep_sg.name,
-      "topology"               = var.active_directory_topology,
-      "ad_join_pwd"            = random_password.ad_join_pwd.result,
-      "plugin_download_url"    = local.repository_download_url,
-      "tag"                    = var.repository_reference,
-      "vda_sg"                 = var.vda_security_group_name
+      "customer_id"             = var.citrix_customer_id,
+      "api_id"                  = var.citrix_api_key_client_id,
+      "api_secret"              = var.citrix_api_key_client_secret,
+      "resource_location_name"  = var.resource_location_names[floor(count.index / var.connector_per_zone)],
+      "ad_domain_name"          = var.active_directory_domain_name,
+      "ad_ip"                   = floor(count.index / var.connector_per_zone) == 0 ? ibm_is_instance.active_directory.primary_network_interface[0].primary_ipv4_address : ibm_is_instance.secondary_active_directory[floor(count.index / var.connector_per_zone)-1].primary_network_interface[0].primary_ipv4_address,
+      "ghe_token"               = var.personal_access_token,
+      "ibmcloud_account_id"     = var.ibmcloud_account_id,
+      "vpc_id"                  = ibm_is_vpc.vpc.id,
+      "resource_group_id"       = data.ibm_resource_group.cvad.id,
+      "region"                  = var.region,
+      "zone"                    = var.zones[floor(count.index / var.connector_per_zone)],
+      "master_prep_sg"          = ibm_is_security_group.master_prep_sg.name,
+      "topology"                = var.active_directory_topology,
+      "ad_join_pwd"             = random_password.ad_join_pwd.result,
+      "plugin_download_url"     = local.repository_download_url,
+      "tag"                     = var.repository_reference,
+      "vda_sg"                  = var.vda_security_group_name,
+      "dedicated_host_group_id" = var.dedicated_host_per_zone > 0 ? ibm_is_dedicated_host_group.dh_group[var.zones[floor(count.index / var.connector_per_zone)]].id : ""
     }
   )
 
@@ -329,6 +367,10 @@ resource "ibm_is_instance" "connector" {
 
 # Create Virtual Server for custom VDA image creation
 resource "ibm_is_instance" "custom_image_instance" {
+  depends_on = [
+    ibm_is_dedicated_host.host
+  ]
+
   count           = var.deploy_custom_image_vsi ? 1 : 0
   name            = "cstm-img-${local.uuid}"
   vpc             = ibm_is_vpc.vpc.id
@@ -337,6 +379,8 @@ resource "ibm_is_instance" "custom_image_instance" {
   image           = data.ibm_is_image.windows.id
   profile         = var.custom_image_vsi_profile
   resource_group  = data.ibm_resource_group.cvad.id
+  dedicated_host_group = (var.dedicated_host_per_zone > 0 && var.dedicated_control_plane) ? ibm_is_dedicated_host_group.dh_group[var.zones[0]].id : null
+
   user_data       = templatefile("${path.module}/scripts/custom-image-userdata.ps1", {
       "ad_ip" = ibm_is_instance.active_directory.primary_network_interface[0].primary_ipv4_address
     }

@@ -87,7 +87,8 @@ infrastructure will be created by default:
 - 2 x Cloud Connector VSIs
 - Custom Image VSI (optional)
 - 4 Security Groups (5 if Custom Image VSI deployed)
-  - Control Plane (Active Directory and Cloud Connector VSIs)
+  - Active Directory VSI
+  - Cloud Connector VSIs
   - VDA VSIs
   - Master Image Prep VSI (VSI deployed during Citrix Machine Catalog creation)
   - Custom Image VSI (optional)

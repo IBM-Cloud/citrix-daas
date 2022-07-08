@@ -27,6 +27,10 @@ variable "ibmcloud_api_key" {
 variable "ibmcloud_account_id" {
     description = "The IBM Cloud account id needed to create a hosting connection from Citrix."
     type        = string
+    validation {
+        condition     = length(var.ibmcloud_account_id) == 32
+        error_message = "Length of IBM Cloud account ID should be 32 characters."
+    }
 }
 
 variable "ibmcloud_ssh_key_name" {
@@ -40,10 +44,58 @@ variable "resource_group" {
 }
 
 variable "personal_access_token" {
-    description = "Personal access token used to get plugin installer from ghe."
+  description   = "Personal access token, Internal IBM use only"
+  type          = string
+  sensitive     = true
+  default       = ""
+}
+
+variable "logdna_name" {
+    description = "Name for LogDNA Instance. Random name will be generated if not set."
     type        = string
-    sensitive   = true
     default     = ""
+}
+
+variable "logdna_integration" {
+    description = "Set to false if LogDNA not needed, only recommend disabling for non-production environments."
+    type        = bool
+    default     = false
+}
+
+variable "logdna_ingestion_key" {
+    description = "Provide existing LogDNA instance ingestion key. If not set, a new instance of LogDNA will be created when `logdna_integration` is true."
+    type        = string
+    default     = ""
+    sensitive   = true
+    validation {
+        condition = can(try(
+            regex("^$", var.logdna_ingestion_key),
+            regex("^[[:alnum:]]{32}$", var.logdna_ingestion_key)
+        ))
+        error_message = "If provided, ingestion key should be 32 lower alphanumeric characters in length."
+    }
+}
+
+variable "logdna_plan" {
+    description = "Service plan used for new LogDNA instance."
+    type        = string
+    default     = "7-day"
+    validation {
+        condition     = contains(["lite", "7-day", "14-day", "30-day", "hipaa"], var.logdna_plan)
+        error_message = "Must provide a valid logdna plan."
+    }
+}
+
+variable "logdna_enable_platform" {
+    description = "Enable platform logs (needed for volume worker manager logs) for new LogDNA instance. Only one instance of LogDNA per region can be enabled for platform logs."
+    type        = bool
+    default     = false
+}
+
+variable "logdna_tags" {
+    description = "Tags for new LogDNA instance."
+    type        = list(string)
+    default     = ["cvad", "daas", "logging"]
 }
 
 variable "citrix_customer_id" {
@@ -109,7 +161,7 @@ variable "address_prefix_cidrs" {
 
 variable "subnet_cidrs" {
     type        = list(string)
-    description = "Subnet cidrs to use in each zone, requred when using `address_prefix_cidrs`"
+    description = "Subnet cidrs to use in each zone, required when using `address_prefix_cidrs`"
     default     = []
 }
 
@@ -117,6 +169,10 @@ variable "subnet_ipv4_count" {
     type        = number
     description = "Count of ipv4 address in each zone, ignored when using `address_prefix_cidrs`"
     default     = 256
+    validation  {
+      condition     = can(regex("^8$|^16$|^32$|^64$|^128$|^256$|^512$|^1024$|^2048$|^4096$|^8192$|^16384$", var.subnet_ipv4_count))
+      error_message = "Please enter the valid IPV4 address count for the subnet."
+    }
 }
 
 variable "connector_per_zone" {
@@ -169,6 +225,12 @@ variable "deploy_custom_image_vsi" {
     default     = false
 }
 
+variable "deploy_custom_image_fip" {
+    description = "Deploy Floating IP to be used with custom image VSI when set to true"
+    type        = bool
+    default     = false
+}
+
 variable "control_plane_profile" {
     description = "Profile to use for creating Active Directory and Cloud Connector VSIs"
     type        = string
@@ -182,7 +244,7 @@ variable "custom_image_vsi_profile" {
 }
 
 variable "plugin_download_url" {
-    description = "Scheduled for deprecated, use `repository_download_url`"
+    description = "Deprecated, use `repository_download_url`"
     type        = string
     default     = ""
 }
@@ -197,6 +259,12 @@ variable "repository_reference" {
     description = "Reference of repository at which to download"
     type        = string
     default     = "master"
+}
+
+variable "deploy_volume_worker" {
+    description = "Enable the volume worker, uses FaaS to create workers for disk creation"
+    type        = bool
+    default     = false
 }
 
 variable "vda_security_group_name" {

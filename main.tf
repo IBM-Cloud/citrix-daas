@@ -34,13 +34,30 @@ resource "random_password" "ad_join_pwd" {
   override_special = "_%@"
 }
 
+module "logdna" {
+  count               = var.logdna_ingestion_key == "" && var.logdna_integration ? 1 : 0
+  source              = "./modules/logdna"
+  plan                = var.logdna_plan
+  default_receiver    = var.logdna_enable_platform
+  location            = var.region
+  name                = var.logdna_name != "" ? var.logdna_name : format("%s-%s", random_string.resource_identifier.result, var.region)
+  resource_group_name = var.resource_group
+  tags                = var.logdna_tags
+}
+
 # Define local variables for Virtual Server creation and Active Directory Cloudbase-Init scripts
 locals {
+  ingestion_key       = var.logdna_ingestion_key == "" && var.logdna_integration ? module.logdna[0].ingestion_key : var.logdna_ingestion_key
   uuid                = random_string.resource_identifier.result
   connector_name      = "cc"
   connector_reg_num   = 5
+  common_tpl          = templatefile("${path.module}/scripts/common.ps1", {
+      "ingestion_key"   = local.ingestion_key,
+      "region"          = var.region,
+  })
   standard_tpl        = templatefile("${path.module}/scripts/ad-userdata.ps1", {
-      "ad_name"             = "${var.basename}-${local.uuid}-${var.active_directory_vsi_name}"
+      "common_ps"           = local.common_tpl,
+      "ad_name"             = "${var.basename}-${local.uuid}-${var.active_directory_vsi_name}",
       "ad_domain_name"      = var.active_directory_domain_name,
       "connector_name"      = local.connector_name,
       "connector_reg_num"   = local.connector_reg_num,
@@ -54,6 +71,7 @@ locals {
     }
   )
   extended_tpl        = templatefile("${path.module}/scripts/ad-extended.ps1", {
+      "common_ps"           = local.common_tpl,
       "ad_domain_name"      = var.active_directory_domain_name,
       "connector_name"      = local.connector_name,
       "connector_reg_num"   = local.connector_reg_num,
@@ -151,18 +169,22 @@ resource "ibm_is_security_group" "custom_image_sg" {
 }
 
 # Create security group rules
+
+# This inbound rule allows all traffic from connectors to active directory
 resource "ibm_is_security_group_rule" "ingress_active_directory_from_connector_all" {
   group     = ibm_is_security_group.active_directory_sg.id
   direction = "inbound"
   remote    = ibm_is_security_group.connector_sg.id
 }
 
+# This inbound rule allows all traffic from vda[default_security_group] to active directory
 resource "ibm_is_security_group_rule" "ingress_active_directory_from_vda_all" {
   group     = ibm_is_security_group.active_directory_sg.id
   direction = "inbound"
   remote    = ibm_is_vpc.vpc.default_security_group
 }
 
+# This allows tcp from custom image to active directory. It won't exist unless custom image is ordered
 resource "ibm_is_security_group_rule" "ingress_active_directory_from_custom_image_tcp" {
   count     = var.deploy_custom_image_vsi ? 1 : 0
   group     = ibm_is_security_group.active_directory_sg.id
@@ -175,6 +197,7 @@ resource "ibm_is_security_group_rule" "ingress_active_directory_from_custom_imag
   }
 }
 
+# This allows udp from custom image to active directory. It won't exist unless custom image is ordered
 resource "ibm_is_security_group_rule" "ingress_active_directory_from_custom_image_udp" {
   count     = var.deploy_custom_image_vsi ? 1 : 0
   group     = ibm_is_security_group.active_directory_sg.id
@@ -187,6 +210,8 @@ resource "ibm_is_security_group_rule" "ingress_active_directory_from_custom_imag
   }
 }
 
+# This allows all traffic from an active directory in one zone to active directories in other zones
+# It won't exist unless the number of zones provided by user are more than one
 resource "ibm_is_security_group_rule" "ingress_active_directory_from_active_directory_all" {
   count     = length(local.secondary_zones) > 0 ? 1 : 0
   group     = ibm_is_security_group.active_directory_sg.id
@@ -194,43 +219,50 @@ resource "ibm_is_security_group_rule" "ingress_active_directory_from_active_dire
   remote    = ibm_is_security_group.active_directory_sg.id
 }
 
+# This rule will allow all the outbound traffic from the active directory
 resource "ibm_is_security_group_rule" "egress_active_directory_all" {
   group     = ibm_is_security_group.active_directory_sg.id
   direction = "outbound"
   remote    = "0.0.0.0/0"
 }
 
+# This inbound rule allows all traffic from vda[default_security_group] to connectors
 resource "ibm_is_security_group_rule" "ingress_connector_from_vda_all" {
   group     = ibm_is_security_group.connector_sg.id
   direction = "inbound"
   remote    = ibm_is_vpc.vpc.default_security_group
 }
 
+# This inbound rule allows all traffic from active directory to connectors
 resource "ibm_is_security_group_rule" "ingress_connector_from_active_directory_all" {
   group     = ibm_is_security_group.connector_sg.id
   direction = "inbound"
   remote    = ibm_is_security_group.active_directory_sg.id
 }
 
+# This rule will allow all the outbound traffic from the connectors
 resource "ibm_is_security_group_rule" "egress_connector_all" {
   group     = ibm_is_security_group.connector_sg.id
   direction = "outbound"
   remote    = "0.0.0.0/0"
 }
 
+# This inbound rule allows all traffic from connectors to vda[default_security_group]
 resource "ibm_is_security_group_rule" "ingress_vda_from_connector_all" {
   group     = ibm_is_vpc.vpc.default_security_group
   direction = "inbound"
   remote    = ibm_is_security_group.connector_sg.id
 }
 
-
+# This inbound rule allows all traffic from active directory to vda[default_security_group]
 resource "ibm_is_security_group_rule" "ingress_vda_from_active_directory_all" {
   group     = ibm_is_vpc.vpc.default_security_group
   direction = "inbound"
   remote    = ibm_is_security_group.active_directory_sg.id
 }
 
+# This will allow users to rdp to the custom image instance from anywhere 
+# It won't exist unless custom image instance is ordered
 resource "ibm_is_security_group_rule" "ingress_custom_image_tcp" {
   count     = var.deploy_custom_image_vsi ? 1 : 0
   group     = ibm_is_security_group.custom_image_sg[count.index].id
@@ -243,6 +275,8 @@ resource "ibm_is_security_group_rule" "ingress_custom_image_tcp" {
   }
 }
 
+# This will allow all outbound traffic from custom image instance 
+# It won't exist unless custom image instance is ordered
 resource "ibm_is_security_group_rule" "egress_custom_image_all" {
   count     = var.deploy_custom_image_vsi ? 1 : 0
   group     = ibm_is_security_group.custom_image_sg[count.index].id
@@ -301,6 +335,7 @@ resource "ibm_is_instance" "secondary_active_directory" {
   dedicated_host_group = (var.dedicated_host_per_zone > 0 && var.dedicated_control_plane) ? ibm_is_dedicated_host_group.dh_group[local.secondary_zones[count.index]].id : null
 
   user_data      = var.active_directory_topology == "Extended" ? local.extended_tpl : templatefile("${path.module}/scripts/secondary-ad-userdata.ps1", {
+      "common_ps"       = local.common_tpl,
       "root_ad_name"    = ibm_is_instance.active_directory.name,
       "ad_domain_name"  = var.active_directory_domain_name,
       "zones"           = join(",", local.secondary_zones),
@@ -336,6 +371,7 @@ resource "ibm_is_instance" "connector" {
   dedicated_host_group = (var.dedicated_host_per_zone > 0 && var.dedicated_control_plane) ? ibm_is_dedicated_host_group.dh_group[var.zones[floor(count.index / var.connector_per_zone)]].id : null
 
   user_data = templatefile("${path.module}/scripts/connector-userdata.ps1", {
+      "common_ps"               = local.common_tpl,
       "customer_id"             = var.citrix_customer_id,
       "api_id"                  = var.citrix_api_key_client_id,
       "api_secret"              = var.citrix_api_key_client_secret,
@@ -354,7 +390,10 @@ resource "ibm_is_instance" "connector" {
       "plugin_download_url"     = local.repository_download_url,
       "tag"                     = var.repository_reference,
       "vda_sg"                  = var.vda_security_group_name,
-      "dedicated_host_group_id" = var.dedicated_host_per_zone > 0 ? ibm_is_dedicated_host_group.dh_group[var.zones[floor(count.index / var.connector_per_zone)]].id : ""
+      "dedicated_host_group_id" = var.dedicated_host_per_zone > 0 ? ibm_is_dedicated_host_group.dh_group[var.zones[floor(count.index / var.connector_per_zone)]].id : "",
+      "cos_bucket_name"         = local.fortio_bucket_name,
+      "cos_region_name"         = local.fortio_manager_region,
+      "use_volume_worker"       = var.deploy_volume_worker ? 1 : 0
     }
   )
 
@@ -382,6 +421,7 @@ resource "ibm_is_instance" "custom_image_instance" {
   dedicated_host_group = (var.dedicated_host_per_zone > 0 && var.dedicated_control_plane) ? ibm_is_dedicated_host_group.dh_group[var.zones[0]].id : null
 
   user_data       = templatefile("${path.module}/scripts/custom-image-userdata.ps1", {
+      "common_ps"           = local.common_tpl,
       "ad_ip" = ibm_is_instance.active_directory.primary_network_interface[0].primary_ipv4_address
     }
   )
@@ -393,6 +433,14 @@ resource "ibm_is_instance" "custom_image_instance" {
   }
 }
 
+# Create Floating IP for custom VDA image VSI
+resource "ibm_is_floating_ip" "custom_image_fip" {
+  count          = var.deploy_custom_image_vsi ? (var.deploy_custom_image_fip ? 1 : 0) : 0
+  name           = "cstm-img-${local.uuid}-fip"
+  resource_group = data.ibm_resource_group.cvad.id
+  target         = ibm_is_instance.custom_image_instance[count.index].primary_network_interface[0].id
+}
+
 # Create one public gateway per zone
 resource "ibm_is_public_gateway" "gateway" {
   count           = length(var.zones)
@@ -400,4 +448,36 @@ resource "ibm_is_public_gateway" "gateway" {
   vpc             = ibm_is_vpc.vpc.id
   zone            = var.zones[count.index]
   resource_group  = data.ibm_resource_group.cvad.id
+}
+
+locals {
+  fortio_prefix         = format("vw-%s", local.uuid)
+  fortio_manager_region = replace(replace(var.region,"/(br-sao|ca-tor)/", "us-east"), "jp-osa", "jp-tok")
+  fortio_bucket_name    = format("%s-bucket-%s", local.fortio_prefix, var.region)
+}
+
+provider ibm {
+  ibmcloud_api_key      = var.ibmcloud_api_key
+  region                = local.fortio_manager_region
+  ibmcloud_timeout      = 60
+  alias                 = "manager"
+}
+
+module "volume_worker" {
+  count                   = var.deploy_volume_worker ? 1 : 0
+  source                  = "./modules/fortio"
+  ibmcloud_api_key        = var.ibmcloud_api_key
+  github_pat              = var.personal_access_token
+  resource_prefix         = local.fortio_prefix
+  region                  = var.region
+  manager_region          = local.fortio_manager_region
+  resource_group          = var.resource_group
+  bucket_name             = local.fortio_bucket_name
+  repository_download_url = local.repository_download_url
+  repository_reference    = var.repository_reference
+  logdna_ingestion_key    = local.ingestion_key
+  providers               = {
+    ibm = ibm
+    ibm.manager = ibm.manager
+  }
 }

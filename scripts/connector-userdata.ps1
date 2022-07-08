@@ -44,59 +44,10 @@ param (
     $GitHubPersonalAccessToken
 )
 
-Function Write-Log {
-    <#
-    .SYNOPSIS
-        Writes log message to log file.
-
-    .DESCRIPTION
-        This function accepts a log message and optional log level,
-        then adds a timestamped log message to the log file.
-
-    .PARAMETER $Message
-        Message string that will be added to the log file.
-
-    .PARAMETER $Level
-        Optional log level parameter that must be "Error", "Warn", or "Info".
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]
-        $Message,
-
-        [Parameter(Mandatory = $false)]
-        [ValidateSet("Error", "Warn", "Info")]
-        [string]
-        $Level
-    )
-
-    $LevelValue = @{Error = "Error"; Warn = "Warning"; Info = "Information"}[$Level]
-    $LogFile = $env:SystemDrive + "\IBMCVADInstallation.log"
-    $Stamp = (Get-Date).toString("yyyy/MM/dd HH:mm:ss")
-    Add-Content $LogFile -Value "$Stamp $LevelValue $Message"
-}
-
-Function Write-Environment {
-    <#
-    .SYNOPSIS
-        Writes header to the log file.
-
-    .DESCRIPTION
-        This function writes a header to the log file to capture general information about the
-        script execution environment.
-    #>
-    Write-Log -Level Info "----------------------------------------"
-    Write-Log -Level Info "Started executing $($MyInvocation.ScriptName)"
-    Write-Log -Level Info "----------------------------------------"
-    Write-Log -Level Info "Script Version: 2022.02.07-1"
-    Write-Log -Level Info "Current User: $env:username"
-    Write-Log -Level Info "Hostname: $env:computername"
-    Write-Log -Level Info "The OS Version is $((Get-CimInstance Win32_OperatingSystem).version)"
-    Write-Log -Level Info "Host Version $($Host.Version)"
-    $DotNet = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
-    Write-Log -Level Info ".NET version/release $($DotNet.version)/$($DotNet.release)"
-}
+#
+# Include Common PS
+#
+${common_ps}
 
 Function Create-Script {
     <#
@@ -150,44 +101,6 @@ Function Join-ComputerToActiveDirectory {
     return $true
 }
 
-Function Set-Dns {
-    <#
-    .SYNOPSIS
-        Sets preferred DNS.
-
-    .DESCRIPTION
-        This function sets the preferred IP address for DNS.
-
-    .PARAMETER $PrefferedDNSServer
-        IP Address to set as preferred DNS address.
-    #>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]
-        $PreferredDnsServer
-    )
-
-    $Interface = Get-WmiObject Win32_NetworkAdapterConfiguration
-    $dnsServers = $Interface | Select-Object -ExpandProperty DNSServerSearchOrder
-    Write-Log -Level Info "Initial DNS Search Order: $dnsServers"
-
-    if ($Interface.DNSServerSearchOrder.contains($PreferredDnsServer)) {
-        Write-Log -Level Info "Dns is already set to $PreferredDnsServer"
-        return
-    }
-
-    if ([bool]($PreferredDnsServer -as [ipaddress])) {
-        Write-Log -Level Info "Registering DNS $PreferredDnsServer"
-        $result = $Interface.SetDNSServerSearchOrder($PreferredDnsServer)
-        Write-Log -Level Info "DNS Registered Result: $result"
-        $dnsServers = $Interface | Select-Object -ExpandProperty DNSServerSearchOrder
-        Write-Log -Level Info "Modified DNS Search Order: $dnsServers"
-    } else {
-        Write-Log -Level Error "Incorrect Preferred Dns Server $PreferredDnsServer"
-        exit 1
-    }
-}
-
 Function DownloadCloudConnector {
     <#
     .SYNOPSIS
@@ -209,6 +122,7 @@ Function DownloadCloudConnector {
 
         if (Test-Path $downloadPath) {
             Write-Log -Level Info "Connector downloaded successfully from $downloadsUri to $downloadPath"
+            Write-FileVersion -FilePath $env:SystemDrive -FileName $exeName
             return $downloadPath
         }
 
@@ -285,15 +199,18 @@ Function Register-CloudConnector {
     )
 
     $process = Start-Process $FilePath $arguments -Wait -Passthru
+    $Logs1 = "%ProgramData%\Citrix\WorkspaceCloud\InstallLogs"
+    $Logs2 = "%LOCALAPPDATA%\Temp\CitrixLogs\CloudServicesSetup"
+    $LogInfo = "Please check installation logs at $Logs1 or $Logs2. For more information visit: https://docs.citrix.com/en-us/citrix-cloud/citrix-cloud-resource-locations/citrix-cloud-connector/installation.html#troubleshooting-installation-issues"
 
     if ($process.ExitCode -eq 0) {
         Write-Log -Level Info "$FilePath Installation Complete"
     } elseIf ($process.ExitCode -eq 1603) {
-        throw "An unexpected error occured while installing $FilePath. Exit code: $($process.ExitCode)"
+        throw "An unexpected error occured while installing $FilePath. Exit code: $($process.ExitCode). " + $LogInfo
     } elseIf ($process.ExitCode -eq 2) {
-        Write-Log -Level Info "A prerequiste check failed while installing $FilePath. Exit code: $($process.ExitCode)"
+        Write-Log -Level Info "A prerequisite check failed while installing $FilePath. Exit code: $($process.ExitCode). " + $LogInfo
     } else {
-        Write-Log -Level Error "Unable to Install $FilePath.  Exit code: $($process.ExitCode)"
+        Write-Log -Level Error "Unable to Install $FilePath.  Exit code: $($process.ExitCode). " + $LogInfo
     }
 }
 
@@ -342,6 +259,9 @@ Function Download-Plugin {
         # Extract plugin msi
         Move-Item "$dir\$msi" -Destination "$pluginDir\$msi" -Force
 
+        $PluginVersion = Get-MSIProductVersion -MSIPATH "$pluginDir\$msi"
+        Write-Log -Level Info "$msi plugin product version is $PluginVersion"
+
         # Cleanup zipball and uncompressed dir
         Remove-Item $downloadPath -Recurse -Force
         Remove-Item $unzipPath -Recurse -Force
@@ -353,13 +273,15 @@ Function Download-Plugin {
                     ('"{0}"' -f "$pluginDir\$msi")
                     "/q"
                     "/L*v"
-                    "C:\msi.log"
+                    (Get-LogPath) + "\PluginMSI.log"
                 )
 
         $process = Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -Passthru
 
         if ($process.ExitCode -eq 0) {
             Write-Log -Level Info "msi Installation Complete"
+            Write-FileVersion -FilePath "$pluginDir" -FileName "IBMVPCSupportService.exe"
+            Write-FileVersion -FilePath "$pluginDir" -FileName "IBM.Cloud.VPC.Provisioning.dll"
         } elseIf ($process.ExitCode -eq 1603) {
             Write-Log -Level Info "An unexpected error occured while installing msi. Exit code: $($process.ExitCode)"
         } elseIf ($process.ExitCode -eq 2) {
@@ -411,23 +333,37 @@ Function Set-Registry {
         The IBM Cloud VPC Plugin needs information about the CVAD deployment. This function sets necessary
         keys in the Windows Registry.
     #>
-    Write-Log -Level Info "Writing registry."
 
-    $registryKeys = @{
-        Region = "${region}";
-        ConnectorVpcId = "${vpc_id}";
-        ResourceGroupId = "${resource_group_id}";
-        AccountId = "${ibmcloud_account_id}";
-        ZoneName = "${zone}";
-        PreparationSecurityGroupName = "${master_prep_sg}";
-        CatalogDefaultSecurityGroupName = "${vda_sg}";
-        DedicatedHostGroupId = "${dedicated_host_group_id}"
+    try {
+        Write-Log -Level Info "Writing registry."
+
+        $registryKeys = @{
+            Region = "${region}";
+            ConnectorVpcId = "${vpc_id}";
+            ResourceGroupId = "${resource_group_id}";
+            AccountId = "${ibmcloud_account_id}";
+            ZoneName = "${zone}";
+            PreparationSecurityGroupName = "${master_prep_sg}";
+            CatalogDefaultSecurityGroupName = "${vda_sg}";
+            COSBucketName = "${cos_bucket_name}";
+            COSRegionName = "${cos_region_name}";
+            DedicatedHostGroupId = "${dedicated_host_group_id}"
+        }
+
+        $path = "HKLM:\Software\IBM\CVAD"
+        New-Item $path -Force
+    
+        foreach ($registryKey in $registryKeys.GetEnumerator()) {
+            Set-ItemProperty -Path $path -Name $registryKey.Name -Value $registryKey.Value
+        }
+    
+        if (${use_volume_worker}) {
+            Set-ItemProperty -Path $path -Name "UseVolumeWorker" -Value 1 -Type DWord
+        }
     }
-
-    New-Item "HKLM:\Software\IBM\CVAD" -Force
-
-    foreach ($registryKey in $registryKeys.GetEnumerator()) {
-        Set-ItemProperty -Path "HKLM:\Software\IBM\CVAD" -Name $registryKey.Name -Value $registryKey.Value
+    catch {
+        Write-Log -Level Error "Set-Registry failed: $_"
+        throw $_
     }
 }
 
@@ -570,60 +506,53 @@ Function Test-IsServiceRunning {
     }
 }
 
-function Retry-Command {
+Function Get-MSIProductVersion {
     <#
     .SYNOPSIS
-        Retries script block.
+        Get the MSI Product Version.
 
     .DESCRIPTION
-        This function accepts a script block and retries x number of times with a specified delay
-        between attempts.
-
-    .PARAMETER $ScriptBlock
-        Script block to execute retries on.
-
-    .PARAMETER $Attempts
-        Number of attempts to try before erroring out.
-
-    .PARAMETER $Delay
-        Delay in seconds between attempts.
-
-    .PARAMETER $UntilDone
-        Can set to true to stop retries.
-
+        This functions returns the Product Version of an MSI file by querying the MSI database.
     #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Position=0, Mandatory=$true)]
-        [scriptblock]$ScriptBlock,
+    param (
+        [parameter(Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+            [System.IO.FileInfo] $MSIPATH
+    )
+    if (!(Test-Path $MSIPATH.FullName)) {
+        throw "File '{0}' does not exist" -f $MSIPATH.FullName
+    }
+    try {
+        $WindowsInstaller = New-Object -com WindowsInstaller.Installer
+        $Database = $WindowsInstaller.GetType().InvokeMember("OpenDatabase", "InvokeMethod", $Null, $WindowsInstaller, @($MSIPATH.FullName, 0))
+        $Query = "SELECT Value FROM Property WHERE Property = 'ProductVersion'"
+        $View = $database.GetType().InvokeMember("OpenView", "InvokeMethod", $Null, $Database, ($Query))
+        $View.GetType().InvokeMember("Execute", "InvokeMethod", $Null, $View, $Null) | Out-Null
+        $Record = $View.GetType().InvokeMember( "Fetch", "InvokeMethod", $Null, $View, $Null )
+        $Version = $Record.GetType().InvokeMember( "StringData", "GetProperty", $Null, $Record, 1 )
+        return $Version
+    } catch {
+        throw "Failed to get MSI file version: {0}." -f $_
+    }
+}
 
-        [Parameter(Position=1, Mandatory=$false)]
-        [int]$Attempts = 5,
+Function Write-FileVersion {
+    <#
+    .SYNOPSIS
+        Writes the File Version to the Log file.
+    #>
+    param (
+        [parameter(Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+            [System.IO.FileInfo] $FilePath,
 
-        [Parameter(Position=2, Mandatory=$false)]
-        [int]$Delay = 60,
-
-        [Parameter(Position=3, Mandatory=$false)]
-        [bool]$UntilDone = $false
+        [parameter(Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+            [System.IO.FileInfo] $FileName
     )
 
-    Begin {
-        $count = 0
-    }
-    Process {
-        do {
-            $count++
-            try {
-                $ScriptBlock.Invoke()
-                return
-            } catch {
-                Write-Log -Level Info $_.Exception.InnerException.Message -ErrorAction Continue
-                Start-Sleep -Seconds $Delay
-            }
-        } while (($count -lt $Attempts) -or ($UntilDone))
-
-        throw "Failed to execute retry block after $Attempts attempts"
-    }
+    $FileVersion = (Get-Item "$FilePath\$FileName").VersionInfo.FileVersion
+    Write-Log -Level Info "$FileName file version is $FileVersion"
 }
 
 #

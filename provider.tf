@@ -22,6 +22,7 @@ terraform {
   required_providers {
     ibm = {
       source = "IBM-Cloud/ibm"
+      configuration_aliases = [ ibm.manager ]
       version = "1.39.2"
     }
   }

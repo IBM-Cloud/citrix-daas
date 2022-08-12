@@ -54,7 +54,7 @@ Function Get-CDFPath {
 }
 
 Function Get-LogPath {
-    return $env:ProgramData + "\CVAD\logs"
+    return $env:ProgramData + "\IBMCitrixDaaS\logs"
 }
 
 Function Write-Log {
@@ -85,7 +85,7 @@ Function Write-Log {
     )
 
     $LevelValue = @{Error = "Error"; Warn = "Warning"; Info = "Information"}[$Level]
-    $LogFile = (Get-LogPath) + "\IBMCVADInstallation.log"
+    $LogFile = (Get-LogPath) + "\IBMCitrixDaaSInstallation.log"
     $Stamp = (Get-Date).toString("yyyy/MM/dd HH:mm:ss")
     Add-Content $LogFile -Value "$Stamp $LevelValue $Message"
 }
@@ -102,7 +102,7 @@ Function Write-Environment {
     Write-Log -Level Info "----------------------------------------"
     Write-Log -Level Info "Started executing $($MyInvocation.ScriptName)"
     Write-Log -Level Info "----------------------------------------"
-    Write-Log -Level Info "Script Version: 2022.06.14"
+    Write-Log -Level Info "Script Version: 2022.08.09"
     Write-Log -Level Info "Current User: $env:username"
     Write-Log -Level Info "Hostname: $env:computername"
     Write-Log -Level Info "The OS Version is $((Get-CimInstance Win32_OperatingSystem).version)"

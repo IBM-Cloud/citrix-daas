@@ -52,6 +52,10 @@ variable "manager_region" {
 variable "resource_group" {
     description = "The IBM resource group name to be associated with this IBM Cloud VPC CVAD deployment"
     type        = string
+    validation {
+        condition     = length(var.resource_group) <= 40 && can(regex("^[a-zA-Z0-9-_ ]+$", var.resource_group))
+        error_message = "Use alphanumeric characters along with hyphens and underscores only."
+    }
 }
 
 variable "max_worker_count" {

@@ -187,11 +187,18 @@ Function Run-Install {
         Write-Log -Level Info "Setting DNS to primary active directory $RootActiveDirectoryIPAddress"
         Set-Dns $RootActiveDirectoryIPAddress
         Import-Module ADDSDeployment
-        Write-Log -Level Info "Site Name is Default-First-Site-Name, Root AD Domain Controller is $ReplicationSourceDC"
-
+        $sites = "${sites}"
+        $AdSites = $sites.Split(",")
         Retry-Command -ScriptBlock {
-            $result = Custom-InstallADDomainController -SiteName "Default-First-Site-Name"
-            Write-Log -Level Info "ActiveDirectory domain controller: $($result.Message)"
+            if ([string]::IsNullOrEmpty($AdSites)){
+                Write-Log -Level Info "Site Name is Default-First-Site-Name, Root AD Domain Controller is $ReplicationSourceDC"
+                $result = Custom-InstallADDomainController -SiteName "Default-First-Site-Name"
+                Write-Log -Level Info "ActiveDirectory domain controller: $($result.Message)"
+            } else{
+                Write-Log -Level Info "Site Name is $AdSites[${zone_index}], Root AD Domain Controller is $ReplicationSourceDC"
+                $result = Custom-InstallADDomainController -SiteName $AdSites[${zone_index}]
+                Write-Log -Level Info "ActiveDirectory domain controller: $($result.Message)"
+            }
         } -Attempts 15
         return $true
     } catch {

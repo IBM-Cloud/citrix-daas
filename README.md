@@ -200,7 +200,7 @@ In order to access restricted resources, whether on-prem or in the cloud, CVAD r
 an authorized proxy. This is accomplished with the installation of a Cloud Connector, which
 is also used by CVAD plugins that need access to the restricted resources.
 
-This Terraform module downloads the `cvad-plugin.msi` from this repository, then installs and
+This Terraform module downloads the `IBM-CitrixDaaS-plugin.msi` from this repository, then installs and
 registers the IBM Cloud VPC Plugin from the msi. See
 [Cloud Connector Cloudbase-Init script](#cloud-connector).
 
@@ -231,8 +231,8 @@ Floating IP for each VSI NIC you wish to access. See
 
 The Cloudbase-Init scripts described
 [above](#cloudbase-init-scripts)
-send log messages to `C:\IBMCVADInstallation.log` on each VSI.
-The Cloud Connector VSI also contains a log file from the `cvad-plugin.msi` install at `C:\msi.log`.
+send log messages to `C:\ProgramData\IBMCitrixDaaS\Logs\IBMCitrixDaaSInstallation.log` on each VSI.
+The Cloud Connector VSI also contains a log file from the `IBM-CitrixDaaS-plugin.msi` install at `C:\ProgramData\IBMCitrixDaaS\Logs\msi.log`.
 
 ## Support
 

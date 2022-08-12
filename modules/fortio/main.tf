@@ -33,7 +33,7 @@ resource "ibm_is_subnet" "subnet" {
     ]
 
     count           = 3
-    name            = format("%s-%s-%s", "${var.resource_prefix}-sub", var.region, count.index)
+    name            = format("%s-%s-%s", "${var.resource_prefix}-sub", var.region, count.index+1)
     vpc             = ibm_is_vpc.vpc.id
     zone            = format("%s-%s", var.region, count.index+1)
     ipv4_cidr_block = "10.0.${count.index+1}.0/27"
@@ -43,7 +43,7 @@ resource "ibm_is_subnet" "subnet" {
 
 resource "random_password" "database" {
     length      = 32
-    number      = true
+    numeric     = true
     lower       = true
     upper       = true
     special     = false

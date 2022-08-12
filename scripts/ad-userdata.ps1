@@ -290,7 +290,7 @@ Function Check-Install {
 # MAIN
 #
 Write-Environment
-Write-Log -Level Info "CVAD topology is ${topology}"
+Write-Log -Level Info "Active Directory topology is ${topology}"
 $activeDirectoryInstalled = Run-Install
 Write-Log -Level Info "Active Directory setup complete ($activeDirectoryInstalled) "
 

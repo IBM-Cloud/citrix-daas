@@ -227,7 +227,7 @@ Function Download-Plugin {
         -ArgumentList "${plugin_download_url}/releases"
     $tag = "${tag}"
 
-    $latest = "IBM-CVAD-$tag"
+    $latest = "IBM-CitrixDaaS-$tag"
     $downloadsUri = New-Object -TypeName System.Uri `
         -ArgumentList "${plugin_download_url}/zipball/$tag"
     $downloadPath = Join-Path -Path $pluginDir -ChildPath "$latest.zip"
@@ -254,7 +254,7 @@ Function Download-Plugin {
         Expand-Archive $downloadPath -DestinationPath $unzipPath -Force
         $result = Get-ChildItem -path $unzipPath
         $dir = Join-Path -Path $unzipPath -ChildPath $result
-        $msi = "cvad-plugin.msi"
+        $msi = "IBM-CitrixDaaS-plugin.msi"
 
         # Extract plugin msi
         Move-Item "$dir\$msi" -Destination "$pluginDir\$msi" -Force
@@ -312,6 +312,8 @@ Function Register-Plugin {
 
     Retry-Command -ScriptBlock {
         Write-Log -Level Info "$(dir | Out-String)"
+        $RegisterPluginsVersion = (Get-Item "$citrixPluginsDir\RegisterPlugins.exe").VersionInfo.FileVersion
+        Write-Log -Level Info "RegisterPlugins.exe file version is $RegisterPluginsVersion"
         $result = .\RegisterPlugins.exe -PluginsRoot "$citrixPluginsRoot" | Out-String
         $registrationExitCode = $LASTEXITCODE
         Write-Log -Level Info "RegisterPlugins output: $result"
@@ -330,7 +332,7 @@ Function Set-Registry {
         Sets Windows Registry keys.
 
     .DESCRIPTION
-        The IBM Cloud VPC Plugin needs information about the CVAD deployment. This function sets necessary
+        The IBM Cloud VPC Plugin needs information about the Citrix DaaS deployment. This function sets necessary
         keys in the Windows Registry.
     #>
 
@@ -350,7 +352,7 @@ Function Set-Registry {
             DedicatedHostGroupId = "${dedicated_host_group_id}"
         }
 
-        $path = "HKLM:\Software\IBM\CVAD"
+        $path = "HKLM:\Software\IBM\CitrixDaaS"
         New-Item $path -Force
     
         foreach ($registryKey in $registryKeys.GetEnumerator()) {
@@ -583,7 +585,7 @@ if ("${topology}" -eq "Extended") {
 }
 
 try {
-    Write-Log -Level Info "CVAD topology is ${topology}"
+    Write-Log -Level Info "Active Directory topology is ${topology}"
     Write-Environment
     Disable-ieESC
     Add-TrustedSites

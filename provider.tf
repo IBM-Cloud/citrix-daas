@@ -21,11 +21,16 @@
 terraform {
   required_providers {
     ibm = {
-      source = "IBM-Cloud/ibm"
-      configuration_aliases = [ ibm.manager ]
-      version = "1.39.2"
+      source                = "IBM-Cloud/ibm"
+      configuration_aliases = [ibm.manager]
+      version               = "1.39.2"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.3.2"
     }
   }
+  required_version = ">= 1.0.0"
 }
 
 ##############################################################################
@@ -35,10 +40,10 @@ terraform {
 # IBM Cloud Provider
 ##############################################################################
 
-provider ibm {
-  ibmcloud_api_key      = var.ibmcloud_api_key
-  region                = var.region
-  ibmcloud_timeout      = 60
+provider "ibm" {
+  ibmcloud_api_key = var.ibmcloud_api_key
+  region           = var.region
+  ibmcloud_timeout = 60
 }
 
 ##############################################################################

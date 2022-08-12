@@ -50,4 +50,8 @@ variable "name" {
 variable "resource_group_name" {
   description = "Name of the resource group associated with the instance"
   type        = string
+  validation {
+      condition     = length(var.resource_group_name) <= 40 && can(regex("^[a-zA-Z0-9-_ ]+$", var.resource_group_name))
+      error_message = "Use alphanumeric characters along with hyphens and underscores only."
+  }
 }

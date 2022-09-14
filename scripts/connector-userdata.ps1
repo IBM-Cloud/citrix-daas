@@ -224,12 +224,12 @@ Function Download-Plugin {
         in Citrix Cloud.
     #>
     $releasesUri = New-Object -TypeName System.Uri `
-        -ArgumentList "${plugin_download_url}/releases"
+        -ArgumentList "${repository_download_url}/releases"
     $tag = "${tag}"
 
     $latest = "IBM-CitrixDaaS-$tag"
     $downloadsUri = New-Object -TypeName System.Uri `
-        -ArgumentList "${plugin_download_url}/zipball/$tag"
+        -ArgumentList "${repository_download_url}/zipball/$tag"
     $downloadPath = Join-Path -Path $pluginDir -ChildPath "$latest.zip"
     $unzipPath = Join-Path -Path $pluginDir -ChildPath $latest
     New-Item -ItemType Directory -Force -Path "$pluginDir"
@@ -305,15 +305,16 @@ Function Register-Plugin {
         Registers IBM Cloud VPC Plugin.
 
     .DESCRIPTION
-        This function runs the plugin resgistration executable which registers the IBM Cloud VPC Plugin
+        This function runs the plugin registration executable which registers the IBM Cloud VPC Plugin
         with Citrix Cloud.
     #>
     pushd "$citrixPluginsDir"
 
     Retry-Command -ScriptBlock {
         Write-Log -Level Info "$(dir | Out-String)"
-        $RegisterPluginsVersion = (Get-Item "$citrixPluginsDir\RegisterPlugins.exe").VersionInfo.FileVersion
-        Write-Log -Level Info "RegisterPlugins.exe file version is $RegisterPluginsVersion"
+        if ([System.IO.File]::Exists("$citrixPluginsDir\RegisterPlugins.exe")) {
+            Write-FileVersion -FilePath "$citrixPluginsDir" -FileName "RegisterPlugins.exe"
+        }
         $result = .\RegisterPlugins.exe -PluginsRoot "$citrixPluginsRoot" | Out-String
         $registrationExitCode = $LASTEXITCODE
         Write-Log -Level Info "RegisterPlugins output: $result"
@@ -354,11 +355,11 @@ Function Set-Registry {
 
         $path = "HKLM:\Software\IBM\CitrixDaaS"
         New-Item $path -Force
-    
+
         foreach ($registryKey in $registryKeys.GetEnumerator()) {
             Set-ItemProperty -Path $path -Name $registryKey.Name -Value $registryKey.Value
         }
-    
+
         if (${use_volume_worker}) {
             Set-ItemProperty -Path $path -Name "UseVolumeWorker" -Value 1 -Type DWord
         }

@@ -34,7 +34,7 @@ variable "ibmcloud_account_id" {
 }
 
 variable "ibmcloud_ssh_key_name" {
-  description = "The IBM Cloud platform SSH key name used to deploy CVAD instances"
+  description = "The IBM Cloud platform SSH key name used to deploy Citrix DaaS instances"
   type        = string
   validation {
     condition     = can(regex("^[a-z0-9-]{1,}$", var.ibmcloud_ssh_key_name))
@@ -43,7 +43,7 @@ variable "ibmcloud_ssh_key_name" {
 }
 
 variable "resource_group" {
-  description = "The IBM resource group name to be associated with this IBM Cloud VPC CVAD deployment"
+  description = "The IBM resource group name to be associated with this IBM Cloud VPC Citrix DaaS deployment"
   type        = string
   validation {
     condition     = length(var.resource_group) <= 40 && can(regex("^[a-zA-Z0-9-_ ]+$", var.resource_group))
@@ -95,7 +95,7 @@ variable "logdna_plan" {
 }
 
 variable "logdna_enable_platform" {
-  description = "Enable platform logs (needed for volume worker manager logs) for new LogDNA instance. Only one instance of LogDNA per region can be enabled for platform logs."
+  description = "Enables logging for the volume worker manager on LogDNA instance. Only one instance of LogDNA per region can be enabled for platform logs. See [Cloud Docs](https://cloud.ibm.com/docs/cvad?topic=cvad-post-provisioning-cvad-vpc#cvad-post-prov-vpc-logging)"
   type        = bool
   default     = false
 }
@@ -103,7 +103,7 @@ variable "logdna_enable_platform" {
 variable "logdna_tags" {
   description = "Tags for new LogDNA instance."
   type        = list(string)
-  default     = ["cvad", "daas", "logging"]
+  default     = ["daas", "logging"]
 }
 
 variable "citrix_customer_id" {
@@ -123,7 +123,7 @@ variable "citrix_api_key_client_secret" {
 }
 
 variable "resource_location_names" {
-  description = "The Citrix resource location name to be associated with this IBM Cloud VPC CVAD deployment"
+  description = "The Citrix resource location name to be associated with this IBM Cloud VPC Citrix DaaS deployment"
   type        = list(string)
   validation {
     condition     = length(var.resource_location_names) >= 1
@@ -153,7 +153,7 @@ variable "region" {
 
 variable "zones" {
   type        = list(string)
-  description = "IBM Cloud zone name within the selected region where the CVAD infrastructure should be deployed. [Learn more](https://cloud.ibm.com/docs/vpc?topic=vpc-creating-a-vpc-in-a-different-region#get-zones-using-the-cli)"
+  description = "IBM Cloud zone name within the selected region where the Citrix DaaS infrastructure should be deployed. [Learn more](https://cloud.ibm.com/docs/vpc?topic=vpc-creating-a-vpc-in-a-different-region#get-zones-using-the-cli)"
 
   validation {
     condition     = length(var.zones) >= 1
@@ -196,7 +196,7 @@ variable "connector_per_zone" {
 variable "basename" {
   description = "Basename of the created resource"
   type        = string
-  default     = "cvad"
+  default     = "daas"
 }
 
 variable "active_directory_domain_name" {
@@ -270,6 +270,16 @@ variable "custom_image_vsi_profile" {
   default     = "cx2-4x8"
 }
 
+variable "custom_image_vsi_image_name" {
+  description = "Provide image name to be used for creating custom image VSI."
+  type        = string
+  default     = "ibm-windows-server-2019-full-standard-amd64-10"
+  validation {
+    condition     = contains(["ibm-windows-server-2019-full-standard-amd64-10", "ibm-windows-server-2022-full-standard-amd64-4"], var.custom_image_vsi_image_name)
+    error_message = "Must provide an allowed image name for custom image vsi."
+  }
+}
+
 variable "plugin_download_url" {
   description = "Deprecated, use `repository_download_url`"
   type        = string
@@ -328,7 +338,7 @@ variable "accept_license" {
   default     = false
   validation {
     condition     = var.accept_license
-    error_message = "You must set the accept_license variable to true when deploying CVAD."
+    error_message = "You must set the accept_license variable to true when deploying Citrix DaaS."
   }
 }
 

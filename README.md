@@ -1,8 +1,8 @@
-# Citrix Virtual Apps and Desktops for IBM Virtual Private Cloud
+# Citrix DaaS for IBM Virtual Private Cloud
 
 ## Overview
 
-This Terraform module deploys the following VPC infrastructure for enabling CVAD on IBM Cloud:
+This Terraform module deploys the following VPC infrastructure for enabling Citrix DaaS on IBM Cloud:
 
 - VPC
 - Subnets
@@ -14,8 +14,8 @@ This Terraform module deploys the following VPC infrastructure for enabling CVAD
 
 ![VPC Deployment Model](materials/vpc-deployment.png)
 
-We recommend using the IBM Cloud portal WES-UI to deploy CVAD on IBM Cloud VPC. The WES-UI creates
-an IBM Cloud Schematics workspace that points to this Terraform module and deploys your CVAD
+We recommend using the IBM Cloud portal WES-UI to deploy Citrix DaaS on IBM Cloud VPC. The WES-UI creates
+an IBM Cloud Schematics workspace that points to this Terraform module and deploys your Citrix DaaS
 infrastructure. Using Schematics is *no additional cost* and provides a way for you to easily manage
 your Terraform lifecycle. See
 [IBM Cloud portal WES-UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop).
@@ -56,20 +56,20 @@ provider. See
 
 If you would like to have network connection between IBM Cloud VPC and Classic Infrastructure, see
 [Enabling VRF](https://cloud.ibm.com/docs/account?topic=account-vrf-service-endpoint&interface=ui#vrf)
-. This option is *not* required to deploy CVAD on IBM Cloud VPC.
+. This option is *not* required to deploy Citrix DaaS on IBM Cloud VPC.
 
 #### IBM Cloud Schematics Access Policies
 
-You must create the proper Schematics access policies for a user to deploy CVAD on IBM Cloud VPC
+You must create the proper Schematics access policies for a user to deploy Citrix DaaS on IBM Cloud VPC
 using the
-[WES-UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop?featureFlags=vpcBeta)
+[WES-UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop)
 or IBM Cloud Schematics. See
 [IBM Cloud Schematics Access](https://cloud.ibm.com/docs/schematics?topic=schematics-access).
 
 ## Variable Behavior
 
 There are a number of variables defined in variables.tf used by this Terraform module to
-deploy and configure your CVAD infrastructure. This section will describe variable behavior. See
+deploy and configure your Citrix DaaS infrastructure. This section will describe variable behavior. See
 [variables.tf](variables.tf)
 for full list of variables with their descriptions, defaults, and conditions.
 
@@ -77,7 +77,7 @@ for full list of variables with their descriptions, defaults, and conditions.
 
 #### IBM Cloud
 
-When deploying CVAD on VPC using IBM Cloud topology, the following
+When deploying Citrix DaaS on VPC using IBM Cloud topology, the following
 infrastructure will be created by default:
 
 - 1 x VPC
@@ -134,7 +134,7 @@ See
 
 ## Security Groups
 
-As part of your CVAD on VPC deployment, this Terraform module creates the following 4 security
+As part of your Citrix DaaS on VPC deployment, this Terraform module creates the following 4 security
 groups:
 
 | Group | Description |
@@ -193,12 +193,12 @@ Directory VSI. See
 
 Citrix Virtual Apps and Desktops for IBM Cloud uses a plugin architecture to add support for new
 hypervisors and cloud providers. Partners and vendors can develop their own plugins which will be
-recognized by CVAD. Through a partnership with Citrix, IBM has developed an IBM Cloud VPC plugin
-that allows CVAD customers to manage resources on IBM Cloud VPC.
+recognized by Citrix DaaS. Through a partnership with Citrix, IBM has developed an IBM Cloud VPC plugin
+that allows Citrix DaaS customers to manage resources on IBM Cloud VPC.
 
-In order to access restricted resources, whether on-prem or in the cloud, CVAD requires the use of
+In order to access restricted resources, whether on-prem or in the cloud, Citrix DaaS requires the use of
 an authorized proxy. This is accomplished with the installation of a Cloud Connector, which
-is also used by CVAD plugins that need access to the restricted resources.
+is also used by Citrix DaaS plugins that need access to the restricted resources.
 
 This Terraform module downloads the `IBM-CitrixDaaS-plugin.msi` from this repository, then installs and
 registers the IBM Cloud VPC Plugin from the msi. See
@@ -234,6 +234,28 @@ The Cloudbase-Init scripts described
 send log messages to `C:\ProgramData\IBMCitrixDaaS\Logs\IBMCitrixDaaSInstallation.log` on each VSI.
 The Cloud Connector VSI also contains a log file from the `IBM-CitrixDaaS-plugin.msi` install at `C:\ProgramData\IBMCitrixDaaS\Logs\msi.log`.
 
+## Dedicated Host
+
+Optionally the user will be able to request dedicated host(s). Dedicated hosts are provisioned per zone and require a dedicated host group per zone. The user will be able to supply a dedicated host profile and quantity. Terraform will create the dedicated host resources and pass, through cloud-init, the dedicated host group ID. The cloud-init script will save this in the Windows registry for the cloud connector plugin to reference later. With that set, the plugin will automatically use the dedicated host group for a placement target of VDAs created with it.
+
+An additional option for dedicated host will allow the user to provision the control plane components on to the dedicated host ordered for VDAs. In this shared configuration the cloud connectors, active directory, and custom image VSIs would use the dedicated host group as their placement target. This option cannot be used without ordering dedicated host for VDA placement at this time.
+
+Using dedicated host groups for instance placement targets, will spread the VSI across the dedicated hosts in the dedicated host groups. Dedicated host groups are zonal, and therefore the spread of instances must be in the group's zone that is targeted. Using a single dedicated host for a Citrix DaaS order should be discouraged, as this would create a single point of failure. Using 2 or more dedicated hosts, residing in more than 1 zone, should be recommended. For more information, see [Dedicated Host Specifics](https://cloud.ibm.com/docs/cvad?topic=cvad-provisioning-cvad-vpc#specifics-vpc-dedhost)
+
+### Dedicated Host Shared Control Plane
+
+The standard dedicated host option for Citrix DaaS on VPC provisions the control plane components, active directory, cloud connectors, and custom image VSI onto public hosts and the VDAs to the dedicated hosts ordered with Citrix DaaS.
+
+![Dedicated Deployment](materials/dedicated-deployment.png)
+
+With the shared dedicated option the control plane is also provisioned to the dedicated host(s).
+
+![Dedicated Deployment Shared](materials/dedicated-deployment-shared.png)
+
+Note the dedicated host group is specified when ordering VSIs for Citrix DaaS. In the example below, 2 dedicated hosts are ordered for one zone. When VSI are ordered with a placement target of the dedicated group, the default scheduling algorithm for VPC is used. This will spread the VSI across the dedicated hosts in the group. The placement will appear to be random and offers no control on which hosts the VDAs or control plane are provisioned to.
+
+![Dedicated Deployment Shared Multiple](materials/dedicated-deployment-shared-multiple.png)
+
 ## Support
 
 If you have problems or questions when using Citrix Virtual Apps and Desktops for IBM Cloud, you can
@@ -260,6 +282,6 @@ Hot patches will be released on demand.
 
 - [What is Terraform](https://www.terraform.io/intro)
 - [IBM Cloud provider Terraform getting started](https://cloud.ibm.com/docs/ibm-cloud-provider-for-terraform?topic=ibm-cloud-provider-for-terraform-getting-started)
-- [Citrix CVAD docs](https://docs.citrix.com/en-us/tech-zone/learn/tech-briefs/cvads.html)
+- [Citrix DaaS docs](https://docs.citrix.com/en-us/citrix-daas)
 - [IBM Cloud Schematics](https://cloud.ibm.com/schematics/overview)
-- [CVAD Ordering UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop?featureFlags=vpcBeta)
+- [Citrix DaaS Ordering UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop)

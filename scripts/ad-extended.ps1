@@ -232,7 +232,7 @@ Function Check-Install {
 # MAIN
 #
 Write-Environment
-Write-Log -Level Info "CVAD topology is ${topology}"
+Write-Log -Level Info "Active Directory topology is ${topology}"
 
 if ($RootActiveDirectoryIPAddress -eq "") {
     Write-Log -Level Info "Manual AD setup required for Extended topology. Creating ActiveDirectorySetup.ps1 in C:\"

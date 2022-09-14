@@ -38,7 +38,7 @@ Function Write-LogDNAAgentConfig {
     logdna-agent -d (Get-CCLogPath)
     logdna-agent -d (Get-CloudInitLogPath)
     logdna-agent -s LOGDNA_LOGHOST=logs.${region}.logging.cloud.ibm.com
-    logdna-agent -t cvad,daas
+    logdna-agent -t daas
 }
 
 Function Get-CCLogPath {

@@ -102,7 +102,7 @@ Function Write-Environment {
     Write-Log -Level Info "----------------------------------------"
     Write-Log -Level Info "Started executing $($MyInvocation.ScriptName)"
     Write-Log -Level Info "----------------------------------------"
-    Write-Log -Level Info "Script Version: 2022.08.09"
+    Write-Log -Level Info "Script Version: 2022.09.18"
     Write-Log -Level Info "Current User: $env:username"
     Write-Log -Level Info "Hostname: $env:computername"
     Write-Log -Level Info "The OS Version is $((Get-CimInstance Win32_OperatingSystem).version)"
@@ -201,6 +201,7 @@ Function Set-Dns {
         Write-Log -Level Info "Registering DNS $PreferredDnsServer"
         $result = $Interface.SetDNSServerSearchOrder($PreferredDnsServer)
         Write-Log -Level Info "DNS Registered Result: $result"
+        $Interface = Get-WmiObject Win32_NetworkAdapterConfiguration
         $dnsServers = $Interface | Select-Object -ExpandProperty DNSServerSearchOrder
         Write-Log -Level Info "Modified DNS Search Order: $dnsServers"
     } else {

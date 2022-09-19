@@ -564,7 +564,8 @@ Function Write-FileVersion {
 $citrixPluginsDir = "C:\Program Files\Common Files\Citrix\HCLPlugins"
 $citrixPluginsRoot = "$citrixPluginsDir\CitrixMachineCreation\v1.0.0.0"
 $pluginDir = "$citrixPluginsRoot\IBMCloud"
-$citrixServiceName = "Citrix Cloud Services AD Provider"
+# Last service installed
+$citrixServiceName = "Citrix ClxMtp Service"
 
 if ("${topology}" -eq "Extended") {
     Write-Log -Level Info "Active Directory topology is set to Extended."
@@ -591,6 +592,7 @@ try {
     Disable-ieESC
     Add-TrustedSites
     Test-CitrixAgentHub
+
     $ResourceLocationId = Get-ResourceLocationId
 
     if (!(Test-IsServiceInstalled)) {
@@ -612,13 +614,13 @@ try {
         if (!(Test-IsServiceRunning)) {
             throw "Citrix Service not running"
         }
-    } -Attempts 10
+    } -Attempts 20
 
     Write-Log -Level Info "Citrix Service is running"
     Register-Plugin
     Write-Log -Level Info "Registration Complete"
     Set-Registry $registryKeys
-    Write-Log -Level Info "Set registy complete"
+    Write-Log -Level Info "Set registry complete"
     Write-Log -Level Info "Restart and do not run this script (1001)"
     exit 1001
 } catch {

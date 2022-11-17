@@ -20,20 +20,20 @@ variable "default_receiver" {
 variable "location" {
   description = "Region where LogDNA will be provisioned"
   type        = string
-  validation  {
+  validation {
     error_message = "Must use an IBM Cloud region. Use `ibmcloud regions` with the IBM Cloud CLI to see valid regions."
-    condition     = contains([
-        "au-syd",
-        "jp-tok",
-        "eu-de",
-        "eu-gb",
-        "us-south",
-        "us-east",
-        "ca-tor",
-        "jp-osa",
-        "br-sao"
-      ], var.location)
-    }
+    condition = contains([
+      "au-syd",
+      "jp-tok",
+      "eu-de",
+      "eu-gb",
+      "us-south",
+      "us-east",
+      "ca-tor",
+      "jp-osa",
+      "br-sao"
+    ], var.location)
+  }
 }
 
 variable "tags" {
@@ -51,7 +51,7 @@ variable "resource_group_name" {
   description = "Name of the resource group associated with the instance"
   type        = string
   validation {
-      condition     = length(var.resource_group_name) <= 40 && can(regex("^[a-zA-Z0-9-_ ]+$", var.resource_group_name))
-      error_message = "Use alphanumeric characters along with hyphens and underscores only."
+    condition     = length(var.resource_group_name) <= 40 && can(regex("^[a-zA-Z0-9-_ ]+$", var.resource_group_name))
+    error_message = "Use alphanumeric characters along with hyphens and underscores only."
   }
 }

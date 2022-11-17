@@ -234,6 +234,13 @@ resource "ibm_is_security_group_rule" "ingress_connector_from_active_directory_a
   remote    = ibm_is_security_group.active_directory_sg.id
 }
 
+# This inbound rule allows all traffic from a connector to other connectors
+resource "ibm_is_security_group_rule" "ingress_connector_from_connector_all" {
+  group     = ibm_is_security_group.connector_sg.id
+  direction = "inbound"
+  remote    = ibm_is_security_group.connector_sg.id
+}
+
 # This rule will allow all the outbound traffic from the connectors
 resource "ibm_is_security_group_rule" "egress_connector_all" {
   group     = ibm_is_security_group.connector_sg.id
@@ -280,7 +287,7 @@ resource "ibm_is_security_group_rule" "egress_custom_image_all" {
 
 # Get Windows image for Virtual Server creates
 data "ibm_is_image" "windows" {
-  name = "ibm-windows-server-2019-full-standard-amd64-10"
+  name = "ibm-windows-server-2022-full-standard-amd64-4"
 }
 
 # Get SSH Key for Virtual Server creates
@@ -357,7 +364,7 @@ resource "ibm_is_instance" "secondary_active_directory" {
       "zones"          = join(",", local.secondary_zones),
       "topology"       = var.active_directory_topology,
       "zone_index"     = count.index,
-      "root_ad_ip"     = ibm_is_instance.active_directory.primary_network_interface[0].primary_ipv4_address,
+      "root_ad_ip"     = ibm_is_instance.active_directory.primary_network_interface[0].primary_ip[0].address,
       "ad_join_pwd"    = random_password.ad_join_pwd.result,
       "ad_safe_pwd"    = var.active_directory_safe_mode_password,
     }
@@ -387,29 +394,30 @@ resource "ibm_is_instance" "connector" {
   dedicated_host_group = (var.dedicated_host_per_zone > 0 && var.dedicated_control_plane) ? ibm_is_dedicated_host_group.dh_group[var.zones[floor(count.index / var.connector_per_zone)]].id : null
 
   user_data = templatefile("${path.module}/scripts/connector-userdata.ps1", {
-    "common_ps"               = local.common_tpl,
-    "customer_id"             = var.citrix_customer_id,
-    "api_id"                  = var.citrix_api_key_client_id,
-    "api_secret"              = var.citrix_api_key_client_secret,
-    "resource_location_name"  = var.resource_location_names[floor(count.index / var.connector_per_zone)],
-    "ad_domain_name"          = var.active_directory_domain_name,
-    "ad_ip"                   = floor(count.index / var.connector_per_zone) == 0 ? ibm_is_instance.active_directory.primary_network_interface[0].primary_ipv4_address : ibm_is_instance.secondary_active_directory[floor(count.index / var.connector_per_zone) - 1].primary_network_interface[0].primary_ipv4_address,
-    "ghe_token"               = var.personal_access_token,
-    "ibmcloud_account_id"     = var.ibmcloud_account_id,
-    "vpc_id"                  = ibm_is_vpc.vpc.id,
-    "resource_group_id"       = data.ibm_resource_group.citrix_daas.id,
-    "region"                  = var.region,
-    "zone"                    = var.zones[floor(count.index / var.connector_per_zone)],
-    "master_prep_sg"          = ibm_is_security_group.master_prep_sg.name,
-    "topology"                = var.active_directory_topology,
-    "ad_join_pwd"             = random_password.ad_join_pwd.result,
-    "repository_download_url" = local.repository_download_url,
-    "tag"                     = var.repository_reference,
-    "vda_sg"                  = var.vda_security_group_name,
-    "dedicated_host_group_id" = var.dedicated_host_per_zone > 0 ? ibm_is_dedicated_host_group.dh_group[var.zones[floor(count.index / var.connector_per_zone)]].id : "",
-    "cos_bucket_name"         = local.fortio_bucket_name,
-    "cos_region_name"         = local.fortio_manager_region,
-    "use_volume_worker"       = var.deploy_volume_worker ? 1 : 0
+    "common_ps"                      = local.common_tpl,
+    "customer_id"                    = var.citrix_customer_id,
+    "api_id"                         = var.citrix_api_key_client_id,
+    "api_secret"                     = var.citrix_api_key_client_secret,
+    "resource_location_name"         = var.resource_location_names[floor(count.index / var.connector_per_zone)],
+    "ad_domain_name"                 = var.active_directory_domain_name,
+    "ad_ip"                          = floor(count.index / var.connector_per_zone) == 0 ? ibm_is_instance.active_directory.primary_network_interface[0].primary_ip[0].address : ibm_is_instance.secondary_active_directory[floor(count.index / var.connector_per_zone) - 1].primary_network_interface[0].primary_ip[0].address,
+    "ghe_token"                      = var.personal_access_token,
+    "ibmcloud_account_id"            = var.ibmcloud_account_id,
+    "vpc_id"                         = ibm_is_vpc.vpc.id,
+    "resource_group_id"              = data.ibm_resource_group.citrix_daas.id,
+    "region"                         = var.region,
+    "zone"                           = var.zones[floor(count.index / var.connector_per_zone)],
+    "master_prep_sg"                 = ibm_is_security_group.master_prep_sg.name,
+    "topology"                       = var.active_directory_topology,
+    "ad_join_pwd"                    = random_password.ad_join_pwd.result,
+    "repository_download_url"        = local.repository_download_url,
+    "tag"                            = var.repository_reference,
+    "vda_sg"                         = var.vda_security_group_name,
+    "dedicated_host_group_id"        = var.dedicated_host_per_zone > 0 ? ibm_is_dedicated_host_group.dh_group[var.zones[floor(count.index / var.connector_per_zone)]].id : "",
+    "cos_bucket_name"                = local.fortio_bucket_name,
+    "cos_region_name"                = local.fortio_manager_region,
+    "identity_volume_encryption_crn" = var.identity_volume_encryption_crn,
+    "use_volume_worker"              = var.deploy_volume_worker ? 1 : 0
     }
   )
 
@@ -443,10 +451,13 @@ resource "ibm_is_instance" "custom_image_instance" {
 
   user_data = templatefile("${path.module}/scripts/custom-image-userdata.ps1", {
     "common_ps" = local.common_tpl,
-    "ad_ip"     = ibm_is_instance.active_directory.primary_network_interface[0].primary_ipv4_address
+    "ad_ip"     = ibm_is_instance.active_directory.primary_network_interface[0].primary_ip[0].address
     }
   )
 
+  boot_volume {
+    size = var.boot_volume_capacity
+  }
   primary_network_interface {
     name            = "primary-nic"
     subnet          = ibm_is_subnet.subnets[0].id

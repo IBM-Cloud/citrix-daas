@@ -206,6 +206,11 @@ Function Register-CloudConnector {
     if ($process.ExitCode -eq 0) {
         Write-Log -Level Info "$FilePath Installation Complete"
     } elseIf ($process.ExitCode -eq 1603) {
+        if (Test-RebootRequired) {
+            Write-Log -Level Info "$FilePath Installation failed since a reboot is required."
+            # reboot and rerun this script
+            exit 1003
+        }
         throw "An unexpected error occured while installing $FilePath. Exit code: $($process.ExitCode). " + $LogInfo
     } elseIf ($process.ExitCode -eq 2) {
         Write-Log -Level Info "A prerequisite check failed while installing $FilePath. Exit code: $($process.ExitCode). " + $LogInfo
@@ -223,8 +228,7 @@ Function Download-Plugin {
         This function downloads and installs the IBM Cloud VPC Plugin to enable Web Studio functionality
         in Citrix Cloud.
     #>
-    $releasesUri = New-Object -TypeName System.Uri `
-        -ArgumentList "${repository_download_url}/releases"
+
     $tag = "${tag}"
 
     $latest = "IBM-CitrixDaaS-$tag"
@@ -237,7 +241,7 @@ Function Download-Plugin {
     try {
         Write-Log -Level Info "Downloading $downloadsUri to $downloadPath"
 
-        if ($PersonalAccessToken -eq "") {
+        if ($PersonalAccessToken -eq "" -Or $downloadsUri -like "https://api.github.com/repos/IBM-Cloud/citrix-daas*") {
             Invoke-WebRequest -Method GET -Uri $downloadsUri -OutFile $downloadPath -Verbose
         } else {
             Invoke-WebRequest -Method GET -Headers @{Authorization = "token $PersonalAccessToken"} `
@@ -350,7 +354,8 @@ Function Set-Registry {
             CatalogDefaultSecurityGroupName = "${vda_sg}";
             COSBucketName = "${cos_bucket_name}";
             COSRegionName = "${cos_region_name}";
-            DedicatedHostGroupId = "${dedicated_host_group_id}"
+            DedicatedHostGroupId = "${dedicated_host_group_id}";
+            IdentityVolumeEncryptionCrn = "${identity_volume_encryption_crn}"
         }
 
         $path = "HKLM:\Software\IBM\CitrixDaaS"
@@ -360,9 +365,16 @@ Function Set-Registry {
             Set-ItemProperty -Path $path -Name $registryKey.Name -Value $registryKey.Value
         }
 
+        $DwordRegistryKeys = @{}
+
         if (${use_volume_worker}) {
-            Set-ItemProperty -Path $path -Name "UseVolumeWorker" -Value 1 -Type DWord
+            $DwordRegistryKeys.Add("UseVolumeWorker", 1)
         }
+
+        foreach ($registryKey in $DwordRegistryKeys.GetEnumerator()) {
+            Set-ItemProperty -Path $path -Name $registryKey.Name -Value $registryKey.Value -Type DWord
+        }
+
     }
     catch {
         Write-Log -Level Error "Set-Registry failed: $_"
@@ -595,6 +607,9 @@ try {
 
     $ResourceLocationId = Get-ResourceLocationId
 
+    Set-Registry
+    Write-Log -Level Info "Set registry complete"
+
     if (!(Test-IsServiceInstalled)) {
         $FilePath = DownloadCloudConnector
     }
@@ -619,8 +634,6 @@ try {
     Write-Log -Level Info "Citrix Service is running"
     Register-Plugin
     Write-Log -Level Info "Registration Complete"
-    Set-Registry $registryKeys
-    Write-Log -Level Info "Set registry complete"
     Write-Log -Level Info "Restart and do not run this script (1001)"
     exit 1001
 } catch {

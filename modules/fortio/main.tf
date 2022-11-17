@@ -59,9 +59,19 @@ resource "ibm_database" "fortio_db" {
   service           = "databases-for-redis"
   resource_group_id = data.ibm_resource_group.citrix_daas.id
 
-  adminpassword                = random_password.database.result
-  members_memory_allocation_mb = 2048
-  members_disk_allocation_mb   = 4096
+  adminpassword = random_password.database.result
+
+  group {
+    group_id = "member"
+
+    memory {
+      allocation_mb = 1024
+    }
+
+    disk {
+      allocation_mb = 2048
+    }
+  }
 }
 
 ##############################################################################

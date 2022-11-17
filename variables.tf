@@ -273,11 +273,7 @@ variable "custom_image_vsi_profile" {
 variable "custom_image_vsi_image_name" {
   description = "Provide image name to be used for creating custom image VSI."
   type        = string
-  default     = "ibm-windows-server-2019-full-standard-amd64-10"
-  validation {
-    condition     = contains(["ibm-windows-server-2019-full-standard-amd64-10", "ibm-windows-server-2022-full-standard-amd64-4"], var.custom_image_vsi_image_name)
-    error_message = "Must provide an allowed image name for custom image vsi."
-  }
+  default     = "ibm-windows-server-2022-full-standard-amd64-4"
 }
 
 variable "plugin_download_url" {
@@ -334,7 +330,7 @@ variable "dedicated_control_plane" {
 
 variable "accept_license" {
   type        = bool
-  description = "Must be set true to accept IBM Cloud VPC Plugin for Citrix Virtual Apps and Desktop license agreement. [Learn more](https://www-40.ibm.com/software/sla/sladb.nsf/displayLIs/296A608D9ACE1F7900258832004E90A0?OpenDocument)"
+  description = "Must be set true to accept IBM Cloud VPC Plugin for Citrix Virtual Apps and Desktop license agreement. [Learn more](https://www-40.ibm.com/software/sla/sladb.nsf/displayLIs/296A608D9ACE1F7900258832004E90A0?OpenDocument). You are accepting [License](https://www-40.ibm.com/software/sla/sladb.nsf/displayLIs/339A16A1DEC937F70025886A00497C8E?OpenDocument) if deploying volume worker."
   default     = false
   validation {
     condition     = var.accept_license
@@ -356,4 +352,20 @@ variable "sites" {
   type        = list(string)
   description = "Site names to be used for active directory servers of different zones"
   default     = []
+}
+
+variable "boot_volume_capacity" {
+  type        = number
+  description = "Boot volume capacity for custom image and the instances created through Citrix Machine Creation Services."
+  default     = 100
+  validation {
+    condition     = var.boot_volume_capacity >= 100 && var.boot_volume_capacity <= 250
+    error_message = "Boot volume capacity must be between 100 and 250, inclusive."
+  }
+}
+
+variable "identity_volume_encryption_crn" {
+  type        = string
+  description = "Identity volume encryption key crn to encrypt the identity disk."
+  default     = ""
 }

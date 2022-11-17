@@ -102,13 +102,28 @@ Function Write-Environment {
     Write-Log -Level Info "----------------------------------------"
     Write-Log -Level Info "Started executing $($MyInvocation.ScriptName)"
     Write-Log -Level Info "----------------------------------------"
-    Write-Log -Level Info "Script Version: 2022.09.18"
+    Write-Log -Level Info "Script Version: 2022.10.27"
     Write-Log -Level Info "Current User: $env:username"
     Write-Log -Level Info "Hostname: $env:computername"
     Write-Log -Level Info "The OS Version is $((Get-CimInstance Win32_OperatingSystem).version)"
     Write-Log -Level Info "Host Version $($Host.Version)"
+    Write-Log -Level Info "PowerShell version/build $($PSVersionTable.PSVersion)/$($PSVersionTable.BuildVersion)"
     $DotNet = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
     Write-Log -Level Info ".NET version/release $($DotNet.version)/$($DotNet.release)"
+}
+
+Function Test-RebootRequired {
+    <#
+    .SYNOPSIS
+        Checks to see if a reboot is required.
+
+    .DESCRIPTION
+        This function checks the registry to determine if a reboot is required before installation can occur.
+        If the "HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending"
+        registry key exists then a reboot is pending.
+    #>
+
+    return Test-Path -path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending"
 }
 
 Function Retry-Command {
@@ -200,7 +215,9 @@ Function Set-Dns {
     if ([bool]($PreferredDnsServer -as [ipaddress])) {
         Write-Log -Level Info "Registering DNS $PreferredDnsServer"
         $result = $Interface.SetDNSServerSearchOrder($PreferredDnsServer)
-        Write-Log -Level Info "DNS Registered Result: $result"
+        Foreach ($res in $result) {
+            Write-Log -Level Info "DNS Registered Result: $($res.ReturnValue)"
+        }
         $Interface = Get-WmiObject Win32_NetworkAdapterConfiguration
         $dnsServers = $Interface | Select-Object -ExpandProperty DNSServerSearchOrder
         Write-Log -Level Info "Modified DNS Search Order: $dnsServers"

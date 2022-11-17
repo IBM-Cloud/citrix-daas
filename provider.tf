@@ -23,7 +23,7 @@ terraform {
     ibm = {
       source                = "IBM-Cloud/ibm"
       configuration_aliases = [ibm.manager]
-      version               = "1.39.2"
+      version               = "1.47.0"
     }
     random = {
       source  = "hashicorp/random"

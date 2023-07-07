@@ -2,12 +2,6 @@
 # Account Variables
 ##############################################################################
 
-variable "ibmcloud_api_key" {
-  description = "The IBM Cloud platform API key needed to deploy IAM enabled resources"
-  type        = string
-  sensitive   = true
-}
-
 variable "region" {
   description = "IBM Cloud VPC region where the volume worker will be created and used"
   type        = string

@@ -285,3 +285,119 @@ Hot patches will be released on demand.
 - [Citrix DaaS docs](https://docs.citrix.com/en-us/citrix-daas)
 - [IBM Cloud Schematics](https://cloud.ibm.com/schematics/overview)
 - [Citrix DaaS Ordering UI](https://cloud.ibm.com/wes-ui/citrix-virtual-app-desktop)
+
+<!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
+## Requirements
+
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0.0 |
+| <a name="requirement_ibm"></a> [ibm](#requirement\_ibm) | 1.47.0 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | 3.3.2 |
+
+## Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_ibm"></a> [ibm](#provider\_ibm) | 1.47.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.3.2 |
+
+## Modules
+
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_logdna"></a> [logdna](#module\_logdna) | ./modules/logdna | n/a |
+| <a name="module_volume_worker"></a> [volume\_worker](#module\_volume\_worker) | ./modules/fortio | n/a |
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [ibm_is_dedicated_host.host](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_dedicated_host) | resource |
+| [ibm_is_dedicated_host_group.dh_group](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_dedicated_host_group) | resource |
+| [ibm_is_floating_ip.custom_image_fip](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_floating_ip) | resource |
+| [ibm_is_instance.active_directory](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_instance) | resource |
+| [ibm_is_instance.connector](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_instance) | resource |
+| [ibm_is_instance.custom_image_instance](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_instance) | resource |
+| [ibm_is_instance.secondary_active_directory](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_instance) | resource |
+| [ibm_is_public_gateway.gateway](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_public_gateway) | resource |
+| [ibm_is_security_group.active_directory_sg](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group) | resource |
+| [ibm_is_security_group.connector_sg](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group) | resource |
+| [ibm_is_security_group.custom_image_sg](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group) | resource |
+| [ibm_is_security_group.master_prep_sg](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group) | resource |
+| [ibm_is_security_group_rule.egress_active_directory_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.egress_connector_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.egress_custom_image_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_active_directory_from_active_directory_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_active_directory_from_connector_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_active_directory_from_custom_image_tcp](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_active_directory_from_custom_image_udp](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_active_directory_from_vda_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_connector_from_active_directory_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_connector_from_connector_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_connector_from_vda_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_custom_image_tcp](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_vda_from_active_directory_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_vda_from_connector_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_subnet.subnets](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_subnet) | resource |
+| [ibm_is_vpc.vpc](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_vpc) | resource |
+| [ibm_is_vpc_address_prefix.prefixes](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_vpc_address_prefix) | resource |
+| [random_password.ad_join_pwd](https://registry.terraform.io/providers/hashicorp/random/3.3.2/docs/resources/password) | resource |
+| [random_string.resource_identifier](https://registry.terraform.io/providers/hashicorp/random/3.3.2/docs/resources/string) | resource |
+| [ibm_is_image.custom_image_windows](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/data-sources/is_image) | data source |
+| [ibm_is_image.windows](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/data-sources/is_image) | data source |
+| [ibm_is_ssh_key.ssh_key_id](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/data-sources/is_ssh_key) | data source |
+| [ibm_resource_group.citrix_daas](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/data-sources/resource_group) | data source |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_accept_license"></a> [accept\_license](#input\_accept\_license) | Must be set true to accept IBM Cloud VPC Plugin for Citrix Virtual Apps and Desktop license agreement. [Learn more](https://www-40.ibm.com/software/sla/sladb.nsf/displayLIs/296A608D9ACE1F7900258832004E90A0?OpenDocument). You are accepting [License](https://www-40.ibm.com/software/sla/sladb.nsf/displayLIs/339A16A1DEC937F70025886A00497C8E?OpenDocument) if deploying volume worker. | `bool` | `false` | no |
+| <a name="input_active_directory_domain_name"></a> [active\_directory\_domain\_name](#input\_active\_directory\_domain\_name) | Active Directory domain name | `string` | n/a | yes |
+| <a name="input_active_directory_safe_mode_password"></a> [active\_directory\_safe\_mode\_password](#input\_active\_directory\_safe\_mode\_password) | Safe mode password for the Active Directory administrator account. [Learn more for password complexity](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/password-must-meet-complexity-requirements) | `string` | n/a | yes |
+| <a name="input_active_directory_topology"></a> [active\_directory\_topology](#input\_active\_directory\_topology) | There are two topologies named IBM Cloud and Extended supported currently | `string` | `"IBM Cloud"` | no |
+| <a name="input_active_directory_vsi_name"></a> [active\_directory\_vsi\_name](#input\_active\_directory\_vsi\_name) | Appended name of the created VSI | `string` | `"ad"` | no |
+| <a name="input_address_prefix_cidrs"></a> [address\_prefix\_cidrs](#input\_address\_prefix\_cidrs) | Address prefixes to create in the VPC | `list(string)` | `[]` | no |
+| <a name="input_basename"></a> [basename](#input\_basename) | Basename of the created resource | `string` | `"daas"` | no |
+| <a name="input_boot_volume_capacity"></a> [boot\_volume\_capacity](#input\_boot\_volume\_capacity) | Boot volume capacity for custom image and the instances created through Citrix Machine Creation Services. | `number` | `100` | no |
+| <a name="input_citrix_api_key_client_id"></a> [citrix\_api\_key\_client\_id](#input\_citrix\_api\_key\_client\_id) | The Citrix Cloud API key client id needed to connect to Citrix | `string` | n/a | yes |
+| <a name="input_citrix_api_key_client_secret"></a> [citrix\_api\_key\_client\_secret](#input\_citrix\_api\_key\_client\_secret) | The Citrix Cloud API key client secret needed to connect to Citrix | `string` | n/a | yes |
+| <a name="input_citrix_customer_id"></a> [citrix\_customer\_id](#input\_citrix\_customer\_id) | The Citrix Cloud customer id needed to connect to Citrix | `string` | n/a | yes |
+| <a name="input_connector_per_zone"></a> [connector\_per\_zone](#input\_connector\_per\_zone) | Number of connector instances per zone | `number` | `2` | no |
+| <a name="input_control_plane_profile"></a> [control\_plane\_profile](#input\_control\_plane\_profile) | Profile to use for creating Active Directory and Cloud Connector VSIs | `string` | `"cx2-4x8"` | no |
+| <a name="input_custom_image_vsi_image_name"></a> [custom\_image\_vsi\_image\_name](#input\_custom\_image\_vsi\_image\_name) | Provide image name to be used for creating custom image VSI. | `string` | `"ibm-windows-server-2022-full-standard-amd64-4"` | no |
+| <a name="input_custom_image_vsi_profile"></a> [custom\_image\_vsi\_profile](#input\_custom\_image\_vsi\_profile) | Profile to use for creating custom image VSI | `string` | `"cx2-4x8"` | no |
+| <a name="input_dedicated_control_plane"></a> [dedicated\_control\_plane](#input\_dedicated\_control\_plane) | Provision control plane virtual server instances (active directory, cloud connector, custom image) on dedicated host groups provisioned with `dedicated_host_per_zone` and `dedicated_host_profile`. Requires `custom_image_vsi_profile` and `control_plane_profile` to use the same profile family and class as `dedicated_host_profile`. | `bool` | `false` | no |
+| <a name="input_dedicated_host_per_zone"></a> [dedicated\_host\_per\_zone](#input\_dedicated\_host\_per\_zone) | Number of dedicated hosts per zone. VDAs for these resource locations will be provisioned to dedicated hosts. Please ensure your VPC vCPU qouta is sufficient. All dedicated host vCPU will count against regional qouta, even while not allocated by VDAs. | `number` | `0` | no |
+| <a name="input_dedicated_host_profile"></a> [dedicated\_host\_profile](#input\_dedicated\_host\_profile) | Profile used for each 'dedicated\_host\_per\_zone'. The dedicated host profile family must match the family to be used by VDAs. Dedicated hosts with instance storage are not supported at this time. | `string` | `""` | no |
+| <a name="input_deploy_custom_image_fip"></a> [deploy\_custom\_image\_fip](#input\_deploy\_custom\_image\_fip) | Deploy Floating IP to be used with custom image VSI when set to true | `bool` | `false` | no |
+| <a name="input_deploy_custom_image_vsi"></a> [deploy\_custom\_image\_vsi](#input\_deploy\_custom\_image\_vsi) | Deploy VSI for creating a custom image to be used for master image when set to true | `bool` | `false` | no |
+| <a name="input_deploy_volume_worker"></a> [deploy\_volume\_worker](#input\_deploy\_volume\_worker) | Enable the volume worker, uses FaaS to create workers for disk creation | `bool` | `false` | no |
+| <a name="input_ibmcloud_account_id"></a> [ibmcloud\_account\_id](#input\_ibmcloud\_account\_id) | The IBM Cloud account id needed to create a hosting connection from Citrix. | `string` | n/a | yes |
+| <a name="input_ibmcloud_api_key"></a> [ibmcloud\_api\_key](#input\_ibmcloud\_api\_key) | The IBM Cloud platform API key needed to deploy IAM enabled resources | `string` | n/a | yes |
+| <a name="input_ibmcloud_ssh_key_name"></a> [ibmcloud\_ssh\_key\_name](#input\_ibmcloud\_ssh\_key\_name) | The IBM Cloud platform SSH key name used to deploy Citrix DaaS instances | `string` | n/a | yes |
+| <a name="input_identity_volume_encryption_crn"></a> [identity\_volume\_encryption\_crn](#input\_identity\_volume\_encryption\_crn) | Identity volume encryption key crn to encrypt the identity disk. | `string` | `""` | no |
+| <a name="input_logdna_enable_platform"></a> [logdna\_enable\_platform](#input\_logdna\_enable\_platform) | Enables logging for the volume worker manager on LogDNA instance. Only one instance of LogDNA per region can be enabled for platform logs. See [Cloud Docs](https://cloud.ibm.com/docs/cvad?topic=cvad-post-provisioning-cvad-vpc#cvad-post-prov-vpc-logging) | `bool` | `false` | no |
+| <a name="input_logdna_ingestion_key"></a> [logdna\_ingestion\_key](#input\_logdna\_ingestion\_key) | Provide existing LogDNA instance ingestion key. If not set, a new instance of LogDNA will be created when `logdna_integration` is true. | `string` | `""` | no |
+| <a name="input_logdna_integration"></a> [logdna\_integration](#input\_logdna\_integration) | Set to false if LogDNA not needed, only recommend disabling for non-production environments. | `bool` | `false` | no |
+| <a name="input_logdna_name"></a> [logdna\_name](#input\_logdna\_name) | Name for LogDNA Instance. Random name will be generated if not set. | `string` | `""` | no |
+| <a name="input_logdna_plan"></a> [logdna\_plan](#input\_logdna\_plan) | Service plan used for new LogDNA instance. | `string` | `"7-day"` | no |
+| <a name="input_logdna_tags"></a> [logdna\_tags](#input\_logdna\_tags) | Tags for new LogDNA instance. | `list(string)` | <pre>[<br>  "daas",<br>  "logging"<br>]</pre> | no |
+| <a name="input_personal_access_token"></a> [personal\_access\_token](#input\_personal\_access\_token) | Personal access token, Internal IBM use only | `string` | `""` | no |
+| <a name="input_plugin_download_url"></a> [plugin\_download\_url](#input\_plugin\_download\_url) | Deprecated, use `repository_download_url` | `string` | `""` | no |
+| <a name="input_region"></a> [region](#input\_region) | IBM Cloud region where all resources will be deployed | `string` | n/a | yes |
+| <a name="input_repository_download_url"></a> [repository\_download\_url](#input\_repository\_download\_url) | Used by Cloud Connector setup to download IBM Cloud VPC plugin. | `string` | `"https://api.github.com/repos/IBM-Cloud/citrix-daas"` | no |
+| <a name="input_repository_reference"></a> [repository\_reference](#input\_repository\_reference) | Reference of repository at which to download | `string` | `"master"` | no |
+| <a name="input_resource_group"></a> [resource\_group](#input\_resource\_group) | The IBM resource group name to be associated with this IBM Cloud VPC Citrix DaaS deployment | `string` | n/a | yes |
+| <a name="input_resource_location_names"></a> [resource\_location\_names](#input\_resource\_location\_names) | The Citrix resource location name to be associated with this IBM Cloud VPC Citrix DaaS deployment | `list(string)` | n/a | yes |
+| <a name="input_sites"></a> [sites](#input\_sites) | Site names to be used for active directory servers of different zones | `list(string)` | `[]` | no |
+| <a name="input_subnet_cidrs"></a> [subnet\_cidrs](#input\_subnet\_cidrs) | Subnet cidrs to use in each zone, required when using `address_prefix_cidrs` | `list(string)` | `[]` | no |
+| <a name="input_subnet_ipv4_count"></a> [subnet\_ipv4\_count](#input\_subnet\_ipv4\_count) | Count of ipv4 address in each zone, ignored when using `address_prefix_cidrs` | `number` | `256` | no |
+| <a name="input_vda_security_group_name"></a> [vda\_security\_group\_name](#input\_vda\_security\_group\_name) | Name for security group created for VDAs | `string` | `"vda-sg"` | no |
+| <a name="input_zones"></a> [zones](#input\_zones) | IBM Cloud zone name within the selected region where the Citrix DaaS infrastructure should be deployed. [Learn more](https://cloud.ibm.com/docs/vpc?topic=vpc-creating-a-vpc-in-a-different-region#get-zones-using-the-cli) | `list(string)` | n/a | yes |
+
+## Outputs
+
+No outputs.
+<!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->

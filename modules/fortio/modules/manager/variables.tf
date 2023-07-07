@@ -2,12 +2,6 @@
 # Account Variables
 ##############################################################################
 
-variable "ibmcloud_api_key" {
-  description = "The IBM Cloud platform API key needed to deploy IAM enabled resources"
-  type        = string
-  sensitive   = true
-}
-
 variable "region" {
   description = "IBM Cloud region where the volume worker manager will be created, must be in a valid IBM Cloud Functions region"
   type        = string
@@ -121,4 +115,9 @@ variable "logdna_ingestion_key" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "vpc_id" {
+  description = "The volume worker vpc id"
+  type        = string
 }

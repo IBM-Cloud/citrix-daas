@@ -90,7 +90,6 @@ locals {
 
 module "manager" {
   source                  = "./modules/manager"
-  ibmcloud_api_key        = var.ibmcloud_api_key
   worker_region           = var.region
   region                  = var.manager_region
   max_worker_count        = var.max_worker_count
@@ -106,6 +105,7 @@ module "manager" {
   repository_reference    = var.repository_reference
   agent_repository_path   = var.agent_repository_path
   logdna_ingestion_key    = var.logdna_ingestion_key
+  vpc_id                  = ibm_is_vpc.vpc.id
   providers = {
     ibm = ibm.manager
   }

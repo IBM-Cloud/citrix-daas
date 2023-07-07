@@ -136,7 +136,7 @@ variable "region" {
   type        = string
 
   validation {
-    error_message = "Must use an IBM Cloud region. Use `ibmcloud regions` with the IBM Cloud CLI to see valid regions."
+    error_message = "Must use an IBM Cloud region. Use `ibmcloud is regions` with the IBM Cloud CLI to see valid regions."
     condition = contains([
       "au-syd",
       "jp-tok",

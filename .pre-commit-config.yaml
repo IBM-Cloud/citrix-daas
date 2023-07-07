@@ -16,10 +16,11 @@ repos:
     - id: terraform_validate
       files: ^examples/
     - id: terraform_docs
-      args: ['--args=--hide=providers']
+      args:
+        - --hook-config=--path-to-file=README.md
+        - --hook-config=--add-to-existing-file=true
     - id: terraform_tflint
       args:
-        # - --args=--enable-rule=terraform_unused_declarations
         - --args=--enable-rule=terraform_deprecated_index
         - --args=--enable-rule=terraform_comment_syntax
         - --args=--enable-rule=terraform_documented_outputs

@@ -97,7 +97,7 @@ Function Join-ComputerToActiveDirectory {
         })
         $AddComputer = Add-Computer -Domain ${ad_domain_name} -Options UnsecuredJoin,PasswordPass -Credential $joinCred -ErrorAction Stop -Verbose
         Write-Log -Level Info "Added Computer $AddComputer"
-    } -Attempts 25 -UntilDone $UntilDone
+    } -Attempts 35 -UntilDone $UntilDone
     return $true
 }
 
@@ -118,6 +118,7 @@ Function DownloadCloudConnector {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
     try {
+        $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -Method GET -Uri $downloadsUri -OutFile $downloadPath -Verbose
 
         if (Test-Path $downloadPath) {
@@ -242,8 +243,10 @@ Function Download-Plugin {
         Write-Log -Level Info "Downloading $downloadsUri to $downloadPath"
 
         if ($PersonalAccessToken -eq "" -Or $downloadsUri -like "https://api.github.com/repos/IBM-Cloud/citrix-daas*") {
+            $ProgressPreference = 'SilentlyContinue'
             Invoke-WebRequest -Method GET -Uri $downloadsUri -OutFile $downloadPath -Verbose
         } else {
+            $ProgressPreference = 'SilentlyContinue'
             Invoke-WebRequest -Method GET -Headers @{Authorization = "token $PersonalAccessToken"} `
             -Uri $downloadsUri -OutFile $downloadPath -Verbose
         }

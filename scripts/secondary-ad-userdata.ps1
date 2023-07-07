@@ -81,7 +81,7 @@ Function Custom-InstallADDomainController {
     $Password = "${ad_join_pwd}"
     $Password = ConvertTo-SecureString -String $Password -AsPlainText -Force
     $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $Username,$Password
-    
+
     $result = Install-ADDSDomainController `
                 -SafeModeAdministratorPassword (ConvertTo-SecureString -String "${ad_safe_pwd}" -AsPlainText -Force) `
                 -NoGlobalCatalog:$false `
@@ -146,9 +146,9 @@ Function Run-Install {
         Write-Log -Level Info "Site Name is $AdZones[${zone_index}], Root AD Name is ${root_ad_name}"
 
         Retry-Command -ScriptBlock {
-            $result = Custom-InstallADDomainController -SiteName $AdZones[${zone_index}] 
+            $result = Custom-InstallADDomainController -SiteName $AdZones[${zone_index}]
             Write-Log -Level Info "ActiveDirectory domain controller: $($result.Message)"
-        } -Attempts 15
+        } -Attempts 25
 
         return $true
     } catch {

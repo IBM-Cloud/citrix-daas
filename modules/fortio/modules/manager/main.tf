@@ -2,6 +2,186 @@
 # Terraform Main IaC
 ##############################################################################
 
+resource "ibm_iam_trusted_profile" "iam_trusted_profile" {
+  name = "${var.resource_prefix}-trusted-profile"
+}
+
+resource "ibm_iam_trusted_profile_claim_rule" "iam_trusted_profile_claim_rule" {
+  profile_id = ibm_iam_trusted_profile.iam_trusted_profile.id
+  type       = "Profile-CR"
+  conditions {
+    claim    = "vpc_id"
+    operator = "EQUALS"
+    value    = "\"${var.vpc_id}\""
+  }
+  name    = "vw-trusted-profile-rule"
+  cr_type = "VSI"
+}
+
+resource "ibm_iam_trusted_profile_policy" "vpc" {
+  profile_id = ibm_iam_trusted_profile.iam_trusted_profile.id
+  roles      = ["Writer", "Viewer", "Reader", "Editor"]
+
+  resources {
+    service           = "is"
+    resource_group_id = var.resource_group_id
+  }
+}
+
+resource "ibm_iam_trusted_profile_policy" "rg" {
+  profile_id = ibm_iam_trusted_profile.iam_trusted_profile.id
+  roles      = ["Writer", "Viewer", "Reader", "Editor"]
+
+  resources {
+    resource_type = "resource-group"
+    resource      = var.resource_group_id
+  }
+}
+
+resource "ibm_iam_trusted_profile_policy" "cos" {
+  profile_id = ibm_iam_trusted_profile.iam_trusted_profile.id
+  roles      = ["Writer", "Viewer", "Reader", "Editor"]
+  resources {
+    service              = "cloud-object-storage"
+    resource_group_id    = var.resource_group_id
+    resource_instance_id = split(":", split("/", ibm_resource_instance.cos_instance.id)[1])[1]
+  }
+}
+
+resource "ibm_iam_trusted_profile_policy" "redis" {
+  profile_id = ibm_iam_trusted_profile.iam_trusted_profile.id
+  roles      = ["Operator", "Viewer", "Administrator", "Editor"]
+  resources {
+    service              = "databases-for-redis"
+    resource_group_id    = var.resource_group_id
+    resource_instance_id = split(".", split("@", var.redis_url)[1])[0]
+  }
+}
+
+resource "ibm_iam_service_id" "service_id" {
+  name        = "${var.resource_prefix}-${var.region}"
+  description = "service id to be used with vw cloud function"
+}
+
+resource "ibm_iam_service_api_key" "service_id_api" {
+  name           = "${var.resource_prefix}-${var.region}"
+  iam_service_id = ibm_iam_service_id.service_id.iam_id
+}
+
+resource "ibm_iam_service_policy" "policy_rg" {
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Writer", "Editor"]
+  resources {
+    resource_type = "resource-group"
+    resource      = var.resource_group_id
+  }
+}
+
+resource "ibm_iam_service_policy" "policy_trusted_profile" {
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Editor", "User API key creator"]
+  resources {
+    service = "iam-identity"
+    attributes = {
+      "resource" = ibm_iam_trusted_profile.iam_trusted_profile.id
+    }
+  }
+}
+
+resource "ibm_iam_service_policy" "policy_function" {
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Editor"]
+  resources {
+    service              = "functions"
+    resource_group_id    = var.resource_group_id
+    resource_instance_id = ibm_function_namespace.namespace.id
+    region               = var.region
+  }
+}
+
+resource "ibm_iam_service_policy" "policy_cos" {
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Writer", "Editor"]
+  resources {
+    service              = "cloud-object-storage"
+    resource_group_id    = var.resource_group_id
+    resource_instance_id = split(":", split("/", ibm_resource_instance.cos_instance.id)[1])[1]
+  }
+}
+
+resource "ibm_iam_service_policy" "policy_vpc" {
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Editor"]
+  resources {
+    service           = "is"
+    resource_group_id = var.resource_group_id
+    attributes = {
+      "vpcId" = var.vpc_id
+    }
+  }
+}
+
+resource "ibm_iam_service_policy" "policy_subnet" {
+  count          = 3
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Editor"]
+  resources {
+    service           = "is"
+    resource_group_id = var.resource_group_id
+    attributes = {
+      "subnetId" = element([for subnet in var.subnet_ids : subnet.id], count.index)
+    }
+  }
+}
+
+resource "ibm_iam_service_policy" "policy_instance" {
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Editor"]
+  resources {
+    service           = "is"
+    resource_group_id = var.resource_group_id
+    attributes = {
+      "instanceId" = "*"
+    }
+  }
+}
+
+resource "ibm_iam_service_policy" "policy_volume" {
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Editor"]
+  resources {
+    service           = "is"
+    resource_group_id = var.resource_group_id
+    attributes = {
+      "volumeId" = "*"
+    }
+  }
+}
+
+resource "ibm_iam_service_policy" "policy_image" {
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Editor"]
+  resources {
+    service           = "is"
+    resource_group_id = var.resource_group_id
+    attributes = {
+      "imageId" = "*"
+    }
+  }
+}
+
+resource "ibm_iam_service_policy" "policy_security_group" {
+  iam_service_id = ibm_iam_service_id.service_id.id
+  roles          = ["Editor"]
+  resources {
+    service           = "is"
+    resource_group_id = var.resource_group_id
+    attributes = {
+      "securityGroupId" = "*"
+    }
+  }
+}
+
 resource "ibm_resource_instance" "cos_instance" {
   name              = "${var.resource_prefix}-cos-${var.worker_region}"
   resource_group_id = var.resource_group_id
@@ -67,7 +247,11 @@ resource "ibm_function_action" "manager" {
     },
     {
       "key"   = "apiKey"
-      "value" = var.ibmcloud_api_key
+      "value" = ibm_iam_service_api_key.service_id_api.apikey
+    },
+    {
+      "key"   = "trustedProfileID"
+      "value" = ibm_iam_trusted_profile.iam_trusted_profile.id
     },
     {
       "key"   = "iamAuthEndpoint"
@@ -105,7 +289,7 @@ resource "ibm_function_action" "manager" {
   ]))
 
   exec {
-    kind      = "go:1.17"
+    kind      = "go:1.19"
     code_path = format("%s/%s", local.action_dir, "manager.zip")
   }
 }

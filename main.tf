@@ -498,7 +498,6 @@ provider "ibm" {
 module "volume_worker" {
   count                   = var.deploy_volume_worker ? 1 : 0
   source                  = "./modules/fortio"
-  ibmcloud_api_key        = var.ibmcloud_api_key
   github_pat              = var.personal_access_token
   resource_prefix         = local.fortio_prefix
   region                  = var.region

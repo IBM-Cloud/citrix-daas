@@ -264,16 +264,38 @@ variable "control_plane_profile" {
   default     = "cx2-4x8"
 }
 
-variable "custom_image_vsi_profile" {
-  description = "Profile to use for creating custom image VSI"
+variable "custom_image_vsi_image_name" {
+  description = "`custom_image_vsi_image_name` is deprecated. Use `custom_image_instances`."
   type        = string
-  default     = "cx2-4x8"
+  default     = null
 }
 
-variable "custom_image_vsi_image_name" {
-  description = "Provide image name to be used for creating custom image VSI."
+variable "boot_volume_capacity" {
+  description = "`boot_volume_capacity` is deprecated. Use `custom_image_instances`."
+  type        = number
+  default     = null
+}
+
+variable "custom_image_vsi_profile" {
+  description = "`custom_image_vsi_profile` is deprecated. Use `custom_image_instances`."
   type        = string
-  default     = "ibm-windows-server-2022-full-standard-amd64-4"
+  default     = null
+}
+
+variable "custom_image_instances" {
+  description = "Configurations needed for custom image instance VSIs."
+  default = [{
+    custom_image_vsi_image_name = "ibm-windows-server-2022-full-standard-amd64-4"
+    boot_volume_capacity        = 100
+    custom_image_vsi_profile    = "cx2-4x8"
+  }]
+  type = list(object(
+    {
+      custom_image_vsi_image_name = string
+      boot_volume_capacity        = number
+      custom_image_vsi_profile    = string
+    }
+  ))
 }
 
 variable "plugin_download_url" {
@@ -352,16 +374,6 @@ variable "sites" {
   type        = list(string)
   description = "Site names to be used for active directory servers of different zones"
   default     = []
-}
-
-variable "boot_volume_capacity" {
-  type        = number
-  description = "Boot volume capacity for custom image and the instances created through Citrix Machine Creation Services."
-  default     = 100
-  validation {
-    condition     = var.boot_volume_capacity >= 100 && var.boot_volume_capacity <= 250
-    error_message = "Boot volume capacity must be between 100 and 250, inclusive."
-  }
 }
 
 variable "identity_volume_encryption_crn" {

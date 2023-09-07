@@ -102,7 +102,7 @@ Function Write-Environment {
     Write-Log -Level Info "----------------------------------------"
     Write-Log -Level Info "Started executing $($MyInvocation.ScriptName)"
     Write-Log -Level Info "----------------------------------------"
-    Write-Log -Level Info "Script Version: 2022.10.27"
+    Write-Log -Level Info "Script Version: 2023.08.15"
     Write-Log -Level Info "Current User: $env:username"
     Write-Log -Level Info "Hostname: $env:computername"
     Write-Log -Level Info "The OS Version is $((Get-CimInstance Win32_OperatingSystem).version)"

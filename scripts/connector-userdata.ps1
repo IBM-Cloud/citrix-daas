@@ -354,6 +354,7 @@ Function Set-Registry {
             AccountId = "${ibmcloud_account_id}";
             ZoneName = "${zone}";
             PreparationSecurityGroupName = "${master_prep_sg}";
+            PreparationSecurityGroupNameRedHatEnterpriseLinux = "${master_prep_rhel_sg}";
             CatalogDefaultSecurityGroupName = "${vda_sg}";
             COSBucketName = "${cos_bucket_name}";
             COSRegionName = "${cos_region_name}";
@@ -632,7 +633,7 @@ try {
         if (!(Test-IsServiceRunning)) {
             throw "Citrix Service not running"
         }
-    } -Attempts 20
+    } -Attempts 40
 
     Write-Log -Level Info "Citrix Service is running"
     Register-Plugin

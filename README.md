@@ -183,11 +183,18 @@ domain and installs the IBM Cloud VPC Plugin on the Cloud Connector. See
 
 ### Custom Image
 
+#### Microsoft Windows
 This Terraform module will pass the `custom-image-userdata.ps1` script into
 `resource "ibm_is_instance" "custom_image_instance"` along with the ad_ip variable. The
 `custom-image-userdata.ps1` script sets the DNS on your Custom Image VSI to the IP of your Active
 Directory VSI. See
 [custom-image-userdata.ps1](scripts/custom-image-userdata.ps1).
+
+#### Linux Based Operating Systems
+This Terraform module will pass the `custom-image-userdata.sh` script into 
+`resource "ibm_is_instance" "custom_image_instance"` along with the ad_ip variable. The
+`custom-image-userdata.sh` installs the Citrix XenDesktopVDA MCS software. See
+[custom-image-userdata.sh](scripts/custom-image-userdata.sh) for prerequistes for this image.
 
 ## IBM Cloud VPC Plugin
 
@@ -233,6 +240,8 @@ The Cloudbase-Init scripts described
 [above](#cloudbase-init-scripts)
 send log messages to `C:\ProgramData\IBMCitrixDaaS\Logs\IBMCitrixDaaSInstallation.log` on each VSI.
 The Cloud Connector VSI also contains a log file from the `IBM-CitrixDaaS-plugin.msi` install at `C:\ProgramData\IBMCitrixDaaS\Logs\msi.log`.
+
+The logging for Linux-based custom images can be found in `/var/log/cloud-init-logging` on the VSI.
 
 ## Dedicated Host
 
@@ -325,9 +334,11 @@ Hot patches will be released on demand.
 | [ibm_is_security_group.connector_sg](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group) | resource |
 | [ibm_is_security_group.custom_image_sg](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group) | resource |
 | [ibm_is_security_group.master_prep_sg](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group) | resource |
+| [ibm_is_security_group.master_prep_rhel_sg](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group) | resource |
 | [ibm_is_security_group_rule.egress_active_directory_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_security_group_rule.egress_connector_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_security_group_rule.egress_custom_image_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.egress_master_prep_rhel_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_security_group_rule.ingress_active_directory_from_active_directory_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_security_group_rule.ingress_active_directory_from_connector_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_security_group_rule.ingress_active_directory_from_custom_image_tcp](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
@@ -336,7 +347,8 @@ Hot patches will be released on demand.
 | [ibm_is_security_group_rule.ingress_connector_from_active_directory_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_security_group_rule.ingress_connector_from_connector_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_security_group_rule.ingress_connector_from_vda_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
-| [ibm_is_security_group_rule.ingress_custom_image_tcp](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_custom_image_rdp](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
+| [ibm_is_security_group_rule.ingress_custom_image_ssh](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_security_group_rule.ingress_vda_from_active_directory_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_security_group_rule.ingress_vda_from_connector_all](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_security_group_rule) | resource |
 | [ibm_is_subnet.subnets](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_subnet) | resource |
@@ -344,7 +356,7 @@ Hot patches will be released on demand.
 | [ibm_is_vpc_address_prefix.prefixes](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/resources/is_vpc_address_prefix) | resource |
 | [random_password.ad_join_pwd](https://registry.terraform.io/providers/hashicorp/random/3.3.2/docs/resources/password) | resource |
 | [random_string.resource_identifier](https://registry.terraform.io/providers/hashicorp/random/3.3.2/docs/resources/string) | resource |
-| [ibm_is_image.custom_image_windows](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/data-sources/is_image) | data source |
+| [ibm_is_image.custom_image](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/data-sources/is_image) | data source |
 | [ibm_is_image.windows](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/data-sources/is_image) | data source |
 | [ibm_is_ssh_key.ssh_key_id](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/data-sources/is_ssh_key) | data source |
 | [ibm_resource_group.citrix_daas](https://registry.terraform.io/providers/IBM-Cloud/ibm/1.47.0/docs/data-sources/resource_group) | data source |

@@ -143,6 +143,12 @@ resource "ibm_is_security_group" "master_prep_sg" {
   resource_group = data.ibm_resource_group.citrix_daas.id
 }
 
+resource "ibm_is_security_group" "master_prep_rhel_sg" {
+  name           = "master-prep-rhel-sg"
+  vpc            = ibm_is_vpc.vpc.id
+  resource_group = data.ibm_resource_group.citrix_daas.id
+}
+
 resource "ibm_is_security_group" "active_directory_sg" {
   name           = "active-directory-sg"
   vpc            = ibm_is_vpc.vpc.id
@@ -163,6 +169,13 @@ resource "ibm_is_security_group" "custom_image_sg" {
 }
 
 # Create security group rules
+
+# This will allow all outbound traffic from rhel master prep server for registration during cloud-init
+resource "ibm_is_security_group_rule" "egress_master_prep_rhel_all" {
+  group     = ibm_is_security_group.master_prep_rhel_sg.id
+  direction = "outbound"
+  remote    = "0.0.0.0/0"
+}
 
 # This inbound rule allows all traffic from connectors to active directory
 resource "ibm_is_security_group_rule" "ingress_active_directory_from_connector_all" {
@@ -264,7 +277,7 @@ resource "ibm_is_security_group_rule" "ingress_vda_from_active_directory_all" {
 
 # This will allow users to rdp to the custom image instance from anywhere
 # It won't exist unless custom image instance is ordered
-resource "ibm_is_security_group_rule" "ingress_custom_image_tcp" {
+resource "ibm_is_security_group_rule" "ingress_custom_image_rdp" {
   count     = var.deploy_custom_image_vsi ? 1 : 0
   group     = ibm_is_security_group.custom_image_sg[count.index].id
   direction = "inbound"
@@ -273,6 +286,20 @@ resource "ibm_is_security_group_rule" "ingress_custom_image_tcp" {
   tcp {
     port_min = 3389
     port_max = 3389
+  }
+}
+
+# This will allow users to ssh to the custom image instance from anywhere
+# It won't exist unless custom image instance is ordered
+resource "ibm_is_security_group_rule" "ingress_custom_image_ssh" {
+  count     = var.deploy_custom_image_vsi ? 1 : 0
+  group     = ibm_is_security_group.custom_image_sg[count.index].id
+  direction = "inbound"
+  remote    = "0.0.0.0/0"
+
+  tcp {
+    port_min = 22
+    port_max = 22
   }
 }
 
@@ -408,6 +435,7 @@ resource "ibm_is_instance" "connector" {
     "region"                         = var.region,
     "zone"                           = var.zones[floor(count.index / var.connector_per_zone)],
     "master_prep_sg"                 = ibm_is_security_group.master_prep_sg.name,
+    "master_prep_rhel_sg"            = ibm_is_security_group.master_prep_rhel_sg.name,
     "topology"                       = var.active_directory_topology,
     "ad_join_pwd"                    = random_password.ad_join_pwd.result,
     "repository_download_url"        = local.repository_download_url,
@@ -428,9 +456,16 @@ resource "ibm_is_instance" "connector" {
   }
 }
 
-# Get Windows image for Custom Image Instance creation
-data "ibm_is_image" "custom_image_windows" {
-  name = var.custom_image_vsi_image_name
+# Get image for Custom Image Instance creation
+data "ibm_is_image" "custom_image" {
+  count = length(var.custom_image_instances)
+  name  = var.custom_image_vsi_image_name != null ? var.custom_image_vsi_image_name : var.custom_image_instances[count.index].custom_image_vsi_image_name
+}
+
+locals {
+  ad_ip = ibm_is_instance.active_directory.primary_network_interface[0].primary_ip[0].address
+  ps_script = "${path.module}/scripts/custom-image-userdata.ps1"
+  rhel_script = "${path.module}/scripts/custom-image-userdata.sh"
 }
 
 # Create Virtual Server for custom VDA image creation
@@ -439,36 +474,44 @@ resource "ibm_is_instance" "custom_image_instance" {
     ibm_is_dedicated_host.host
   ]
 
-  count                = var.deploy_custom_image_vsi ? 1 : 0
-  name                 = "cstm-img-${local.uuid}"
+  count                = var.deploy_custom_image_vsi ? length(var.custom_image_instances) : 0
+  name                 = length(var.custom_image_instances) > 1 ? "cstm-img${local.uuid}${count.index + 1}" : "cstm-img-${local.uuid}"
   vpc                  = ibm_is_vpc.vpc.id
   zone                 = var.zones[0]
   keys                 = [data.ibm_is_ssh_key.ssh_key_id.id]
-  image                = data.ibm_is_image.custom_image_windows.id
-  profile              = var.custom_image_vsi_profile
+  image                = data.ibm_is_image.custom_image[count.index].id
+  profile              = var.custom_image_vsi_profile != null ? var.custom_image_vsi_profile : var.custom_image_instances[count.index].custom_image_vsi_profile
   resource_group       = data.ibm_resource_group.citrix_daas.id
   dedicated_host_group = (var.dedicated_host_per_zone > 0 && var.dedicated_control_plane) ? ibm_is_dedicated_host_group.dh_group[var.zones[0]].id : null
-
-  user_data = templatefile("${path.module}/scripts/custom-image-userdata.ps1", {
-    "common_ps" = local.common_tpl,
-    "ad_ip"     = ibm_is_instance.active_directory.primary_network_interface[0].primary_ip[0].address
-    }
+  user_data            = coalesce(
+      length(regexall("windows", data.ibm_is_image.custom_image[count.index].os)) > 0 ? templatefile(local.ps_script, {
+        "common_ps" = local.common_tpl,
+        "ad_ip"     = local.ad_ip
+        }
+      ) : null,
+      length(regexall("red", data.ibm_is_image.custom_image[count.index].os)) > 0 ? templatefile(local.rhel_script, {
+        "ad_ip"     = local.ad_ip
+        }
+      ) : null,
+      length(regexall("rocky-linux", data.ibm_is_image.custom_image[count.index].os)) > 0 ? templatefile(local.rhel_script, {
+        "ad_ip"     = local.ad_ip
+        }
+      ) : null
   )
-
   boot_volume {
-    size = var.boot_volume_capacity
+    size = var.boot_volume_capacity != null ? var.boot_volume_capacity : var.custom_image_instances[count.index].boot_volume_capacity
   }
   primary_network_interface {
     name            = "primary-nic"
     subnet          = ibm_is_subnet.subnets[0].id
-    security_groups = [ibm_is_security_group.custom_image_sg[count.index].id]
+    security_groups = [ibm_is_security_group.custom_image_sg[0].id]
   }
 }
 
 # Create Floating IP for custom VDA image VSI
 resource "ibm_is_floating_ip" "custom_image_fip" {
-  count          = var.deploy_custom_image_vsi ? (var.deploy_custom_image_fip ? 1 : 0) : 0
-  name           = "cstm-img-${local.uuid}-fip"
+  count          = var.deploy_custom_image_vsi ? (var.deploy_custom_image_fip ? length(var.custom_image_instances) : 0) : 0
+  name           = length(var.custom_image_instances) > 1 ? "cstm-img-${local.uuid}-fip-${count.index + 1}" : "cstm-img-${local.uuid}-fip"
   resource_group = data.ibm_resource_group.citrix_daas.id
   target         = ibm_is_instance.custom_image_instance[count.index].primary_network_interface[0].id
 }

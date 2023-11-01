@@ -3,9 +3,19 @@
 # This script will install the Citrix DaaS MCS software package.  Before deploying this terraform, the user must create
 # an image that includes the Citrix software copied to /opt/ibm/citrix_daas.  The software can be downloaded by following these
 # instructions: https://docs.citrix.com/en-us/linux-virtual-delivery-agent/current-release/installation-overview/create-domain-joined-vdas-using-easy-install#step-4-download-the-linux-vda-package
-# Note: all the steps needed to install and configure the Citrix XenDesktopVDA/MCS software will be performed by this script.  
+# Note: all the steps needed to install and configure the Citrix XenDesktopVDA/MCS software will be performed by this script.
+#
+# /opt/ibm/citrix_daas/mcs.conf - If this file exists on the source image, it will be appended to the mcs.conf file and
+# override the default settings provided in this script.  For example:
+#   VDI_MODE=Y
+# would enable the single session feature.
+#
+# /opt/ibm/citrix_daas/postinstall.sh - If this file exists on the source image, it will be executed after the Citrix software has been
+# installed. This is useful for implementing lockdown policies on the image.
 #
 # The logging output from this script can be found in /var/log/cloud-init-output.log
+#
+# The recommended RHEL version is 9.2 or later.
 #
 CITRIX_DAAS=/opt/ibm/citrix_daas
 INSTALLER_RPM=$(ls $CITRIX_DAAS/XenDesktopVDA*.el9_x.x86_64.rpm) # e.g. XenDesktopVDA-23.05.0.22-1.el9_x.x86_64.rpm
@@ -36,7 +46,7 @@ function write_environment() {
     write_log Info "----------------------------------------"
     write_log Info "Started executing $(dirname $(readlink -f $0))/$(basename $0)"
     write_log Info "----------------------------------------"
-    write_log Info "Script Version: 2023.08.18"
+    write_log Info "Script Version: 2023.10.27-1"
     write_log Info "Current User: $(whoami)"
     write_log Info "Hostname: $(/usr/bin/hostname)"
     write_log Info "The OS Version is $(grep -E '^(VERSION|NAME)=' /etc/os-release)"
@@ -59,9 +69,6 @@ function install_packages
     yum install -y ipa-selinux
     sudo yum update
     yum install -y pkg-config
-    wget https://rpmfind.net/linux/centos-stream/9-stream/BaseOS/x86_64/os/Packages/libsepol-3.4-3.el9.x86_64.rpm
-    wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/libsepol-devel-3.4-3.el9.x86_64.rpm
-    rpm -Uvh libsepol-devel-3.4-3.el9.x86_64.rpm libsepol-3.4-3.el9.x86_64.rpm
     rpm -qa | grep libsepol
 
     # gnome
@@ -109,6 +116,8 @@ function deploy_mcs
         -e "s/dns1=/&\"$DNS_IP_ADDRESS\"/" \
         /etc/xdl/mcs/mcs.conf
 
+    [[ -f "$CITRIX_DAAS/mcs.conf" ]] && cat "$CITRIX_DAAS/mcs.conf" >> /etc/xdl/mcs/mcs.conf || true
+
     sudo /opt/Citrix/VDA/sbin/deploymcs.sh
 
     # need to prevent a race condition between ad_join and cloud-init
@@ -139,6 +148,8 @@ function main
     install_packages
     deploy_mcs
     install_webcam
+
+    [[ -f "$CITRIX_DAAS/postinstall.sh" ]] && "$CITRIX_DAAS/postinstall.sh" || true
 
     write_log Info "MCS Installation Complete (cloud-init), rebooting... "
 
